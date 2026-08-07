@@ -7,6 +7,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.jayway.jsonpath.JsonPath;
+import io.github.humphreymahlangu.votetrust.support.PostgreSqlTestContainerSupport;
 import io.github.humphreymahlangu.votetrust.entity.AnonymousVotingCredential;
 import io.github.humphreymahlangu.votetrust.entity.BallotLedgerEntry;
 import io.github.humphreymahlangu.votetrust.entity.Contest;
@@ -53,11 +54,13 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import org.testcontainers.junit.jupiter.Testcontainers;
 
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
-class VotingIntegrationTest {
+@Testcontainers(disabledWithoutDocker = true)
+class VotingIntegrationTest extends PostgreSqlTestContainerSupport {
 
     private static final Instant FIXED_NOW = Instant.parse("2026-08-07T10:00:00Z");
 
@@ -136,13 +139,12 @@ class VotingIntegrationTest {
                         .content(ballotBody(fixture.contest(), fixture.optionA(), credential)))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.contestId").value(fixture.contest().getId().toString()))
-                .andExpect(jsonPath("$.ledgerIndex").value(0))
-                .andExpect(jsonPath("$.previousHash").value(LedgerState.GENESIS_HASH))
-                .andExpect(jsonPath("$.currentHash").isNotEmpty());
+                .andExpect(jsonPath("$.accepted").value(true))
+                .andExpect(jsonPath("$.message").value("Ballot accepted"));
 
         List<AnonymousVotingCredential> credentials = anonymousVotingCredentialRepository.findAll();
         assertThat(credentials).hasSize(1);
-        assertThat(credentials.getFirst().getUsedAt()).isNotNull();
+        assertThat(credentials.getFirst().isUsed()).isTrue();
 
         List<BallotLedgerEntry> entries = ballotLedgerEntryRepository
                 .findByContestIdOrderByLedgerIndexAsc(fixture.contest().getId());
@@ -221,6 +223,28 @@ class VotingIntegrationTest {
     }
 
     @Test
+    void credentialRequiresContestMatchingRegisteredVotingDistrict() throws Exception {
+        VotingFixture fixture = createVotingFixture(
+                "voter.wrong.ward@example.com",
+                LocalDate.of(1980, 1, 1),
+                ElectionStatus.VOTING_OPEN,
+                ContestStatus.OPEN,
+                Instant.parse("2026-08-07T07:00:00Z"),
+                Instant.parse("2026-08-07T21:00:00Z"),
+                2
+        );
+
+        mockMvc.perform(post(
+                        "/api/v1/elections/{electionId}/contests/{contestId}/credentials",
+                        fixture.election().getId(),
+                        fixture.contest().getId()
+                )
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + fixture.jwt()))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.message").value("Voter is not eligible for this contest based on registered voting district"));
+    }
+
+    @Test
     void credentialRequiresOpenVotingPeriod() throws Exception {
         VotingFixture fixture = createVotingFixture(
                 "voter.closed.vote@example.com",
@@ -259,6 +283,9 @@ class VotingIntegrationTest {
         mockMvc.perform(get("/api/v1/elections/{electionId}/contests", fixture.election().getId()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].id").value(fixture.contest().getId().toString()))
+                .andExpect(jsonPath("$[0].scopeProvince").value("Western Cape"))
+                .andExpect(jsonPath("$[0].scopeMunicipality").value("City of Cape Town"))
+                .andExpect(jsonPath("$[0].scopeWardNumber").value(1))
                 .andExpect(jsonPath("$[0].options[0].id").value(fixture.optionA().getId().toString()))
                 .andExpect(jsonPath("$[0].options[1].id").value(fixture.optionB().getId().toString()));
     }
@@ -282,7 +309,8 @@ class VotingIntegrationTest {
                 ElectionStatus.VOTING_OPEN,
                 ContestStatus.OPEN,
                 Instant.parse("2026-08-07T07:00:00Z"),
-                Instant.parse("2026-08-07T21:00:00Z")
+                Instant.parse("2026-08-07T21:00:00Z"),
+                1
         );
     }
 
@@ -293,6 +321,26 @@ class VotingIntegrationTest {
             ContestStatus contestStatus,
             Instant votingStartAt,
             Instant votingEndAt
+    ) throws Exception {
+        return createVotingFixture(
+                email,
+                dateOfBirth,
+                electionStatus,
+                contestStatus,
+                votingStartAt,
+                votingEndAt,
+                1
+        );
+    }
+
+    private VotingFixture createVotingFixture(
+            String email,
+            LocalDate dateOfBirth,
+            ElectionStatus electionStatus,
+            ContestStatus contestStatus,
+            Instant votingStartAt,
+            Instant votingEndAt,
+            Integer contestScopeWardNumber
     ) throws Exception {
         VotingDistrict district = votingDistrictRepository.save(new VotingDistrict(
                 "WC001-0001",
@@ -315,7 +363,10 @@ class VotingIntegrationTest {
                 "Municipal Ward Councillor",
                 ContestType.MUNICIPAL_WARD,
                 contestStatus,
-                1
+                1,
+                "Western Cape",
+                "City of Cape Town",
+                contestScopeWardNumber
         ));
         ContestOption optionA = contestOptionRepository.save(new ContestOption(
                 contest,

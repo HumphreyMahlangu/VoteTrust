@@ -6,6 +6,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.jayway.jsonpath.JsonPath;
+import io.github.humphreymahlangu.votetrust.support.PostgreSqlTestContainerSupport;
 import io.github.humphreymahlangu.votetrust.entity.AccountRole;
 import io.github.humphreymahlangu.votetrust.entity.BallotLedgerEntry;
 import io.github.humphreymahlangu.votetrust.entity.Contest;
@@ -52,11 +53,13 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import org.testcontainers.junit.jupiter.Testcontainers;
 
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
-class TallyAuditIntegrationTest {
+@Testcontainers(disabledWithoutDocker = true)
+class TallyAuditIntegrationTest extends PostgreSqlTestContainerSupport {
 
     private static final Instant FIXED_NOW = Instant.parse("2026-08-07T22:00:00Z");
 
@@ -201,7 +204,9 @@ class TallyAuditIntegrationTest {
                 .andExpect(jsonPath("$[0].previousHash").value(LedgerState.GENESIS_HASH))
                 .andExpect(jsonPath("$[0].currentHash").value(firstEntry.getCurrentHash()))
                 .andExpect(jsonPath("$[0].nonce").isNotEmpty())
-                .andExpect(jsonPath("$[0].castAt").isNotEmpty());
+                .andExpect(jsonPath("$[0].recordedDate").value("2026-08-07"))
+                .andExpect(jsonPath("$[0].id").doesNotExist())
+                .andExpect(jsonPath("$[0].castAt").doesNotExist());
     }
 
     @Test
@@ -265,6 +270,9 @@ class TallyAuditIntegrationTest {
                 "Municipal Ward Councillor",
                 ContestType.MUNICIPAL_WARD,
                 contestStatus,
+                1,
+                "Western Cape",
+                "City of Cape Town",
                 1
         ));
         ContestOption optionA = contestOptionRepository.save(new ContestOption(

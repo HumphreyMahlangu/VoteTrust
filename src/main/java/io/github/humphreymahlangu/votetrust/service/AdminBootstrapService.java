@@ -3,6 +3,8 @@ package io.github.humphreymahlangu.votetrust.service;
 import io.github.humphreymahlangu.votetrust.dto.AdminBootstrapRequest;
 import io.github.humphreymahlangu.votetrust.dto.AuthResponse;
 import io.github.humphreymahlangu.votetrust.entity.AccountRole;
+import io.github.humphreymahlangu.votetrust.entity.SecurityAuditEventType;
+import io.github.humphreymahlangu.votetrust.entity.SecurityAuditOutcome;
 import io.github.humphreymahlangu.votetrust.entity.UserAccount;
 import io.github.humphreymahlangu.votetrust.exception.AdminBootstrapException;
 import io.github.humphreymahlangu.votetrust.exception.DuplicateResourceException;
@@ -10,6 +12,7 @@ import io.github.humphreymahlangu.votetrust.exception.InvalidBootstrapTokenExcep
 import io.github.humphreymahlangu.votetrust.repository.UserAccountRepository;
 import io.github.humphreymahlangu.votetrust.security.AdminBootstrapProperties;
 import io.github.humphreymahlangu.votetrust.security.JwtService;
+import io.github.humphreymahlangu.votetrust.security.SecurityAuditMetadata;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.Locale;
@@ -25,35 +28,52 @@ public class AdminBootstrapService {
     private final UserAccountRepository userAccountRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    private final SecurityAuditService securityAuditService;
 
     public AdminBootstrapService(
             AdminBootstrapProperties adminBootstrapProperties,
             UserAccountRepository userAccountRepository,
             PasswordEncoder passwordEncoder,
-            JwtService jwtService
+            JwtService jwtService,
+            SecurityAuditService securityAuditService
     ) {
         this.adminBootstrapProperties = adminBootstrapProperties;
         this.userAccountRepository = userAccountRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
+        this.securityAuditService = securityAuditService;
     }
 
     @Transactional
     public AuthResponse bootstrapFirstAdmin(AdminBootstrapRequest request, String bootstrapToken) {
+        return bootstrapFirstAdmin(request, bootstrapToken, SecurityAuditMetadata.system());
+    }
+
+    @Transactional
+    public AuthResponse bootstrapFirstAdmin(
+            AdminBootstrapRequest request,
+            String bootstrapToken,
+            SecurityAuditMetadata metadata
+    ) {
+        String email = normalizeEmail(request.email());
+
         if (!adminBootstrapProperties.enabled()) {
+            auditBootstrapFailure(email, metadata, "Bootstrap disabled");
             throw new AdminBootstrapException("Admin bootstrap is disabled");
         }
 
         if (!tokenMatches(bootstrapToken)) {
+            auditBootstrapFailure(email, metadata, "Invalid bootstrap token");
             throw new InvalidBootstrapTokenException();
         }
 
         if (userAccountRepository.existsByRole(AccountRole.ADMIN)) {
+            auditBootstrapFailure(email, metadata, "Admin already exists");
             throw new DuplicateResourceException("An admin account already exists");
         }
 
-        String email = normalizeEmail(request.email());
         if (userAccountRepository.existsByEmailIgnoreCase(email)) {
+            auditBootstrapFailure(email, metadata, "Email already exists");
             throw new DuplicateResourceException("A user account with this email already exists");
         }
 
@@ -65,6 +85,13 @@ public class AdminBootstrapService {
         ));
 
         JwtService.TokenResult tokenResult = jwtService.generateAccessToken(adminAccount);
+        securityAuditService.record(
+                SecurityAuditEventType.ADMIN_BOOTSTRAP,
+                SecurityAuditOutcome.SUCCESS,
+                adminAccount,
+                metadata,
+                "First admin created"
+        );
         return new AuthResponse(
                 tokenResult.token(),
                 "Bearer",
@@ -72,6 +99,17 @@ public class AdminBootstrapService {
                 adminAccount.getId(),
                 adminAccount.getEmail(),
                 adminAccount.getRole().name()
+        );
+    }
+
+    private void auditBootstrapFailure(String email, SecurityAuditMetadata metadata, String detail) {
+        securityAuditService.record(
+                SecurityAuditEventType.ADMIN_BOOTSTRAP,
+                SecurityAuditOutcome.FAILURE,
+                null,
+                email,
+                metadata,
+                detail
         );
     }
 

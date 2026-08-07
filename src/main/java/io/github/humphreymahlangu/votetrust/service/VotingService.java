@@ -4,7 +4,6 @@ import io.github.humphreymahlangu.votetrust.dto.BallotCastRequest;
 import io.github.humphreymahlangu.votetrust.dto.BallotCastResponse;
 import io.github.humphreymahlangu.votetrust.dto.VotingCredentialResponse;
 import io.github.humphreymahlangu.votetrust.entity.AnonymousVotingCredential;
-import io.github.humphreymahlangu.votetrust.entity.BallotLedgerEntry;
 import io.github.humphreymahlangu.votetrust.entity.Contest;
 import io.github.humphreymahlangu.votetrust.entity.ContestOption;
 import io.github.humphreymahlangu.votetrust.entity.ContestStatus;
@@ -13,6 +12,7 @@ import io.github.humphreymahlangu.votetrust.entity.ElectionRegistration;
 import io.github.humphreymahlangu.votetrust.entity.ElectionStatus;
 import io.github.humphreymahlangu.votetrust.entity.RegistrationStatus;
 import io.github.humphreymahlangu.votetrust.entity.VoterProfile;
+import io.github.humphreymahlangu.votetrust.entity.VotingDistrict;
 import io.github.humphreymahlangu.votetrust.entity.VotingRight;
 import io.github.humphreymahlangu.votetrust.exception.DuplicateResourceException;
 import io.github.humphreymahlangu.votetrust.exception.EligibilityException;
@@ -81,6 +81,7 @@ public class VotingService {
                 .orElseThrow(() -> new EligibilityException("Voter is not registered for this election"));
         VoterProfile voterProfile = registration.getVoterProfile();
         assertOldEnoughToVote(voterProfile, election);
+        assertVotingDistrictEligible(contest, registration.getVotingDistrict());
 
         VotingRight votingRight = votingRightRepository
                 .findByVoterProfileIdAndContestId(voterProfile.getId(), contestId)
@@ -90,16 +91,14 @@ public class VotingService {
             throw new DuplicateResourceException("A voting credential has already been issued for this contest");
         }
 
-        Instant now = Instant.now(clock);
         String rawCredential = voteCredentialService.generateRawCredential();
         String credentialHash = voteCredentialService.hashCredential(rawCredential);
         anonymousVotingCredentialRepository.save(new AnonymousVotingCredential(
                 contest,
                 credentialHash,
-                now,
                 election.getVotingEndAt()
         ));
-        votingRight.markCredentialIssued(now);
+        votingRight.markCredentialIssued();
 
         return new VotingCredentialResponse(election.getId(), contest.getId(), rawCredential, election.getVotingEndAt());
     }
@@ -126,16 +125,13 @@ public class VotingService {
             throw new InvalidVotingCredentialException();
         }
 
-        credential.markUsed(now);
-        BallotLedgerEntry ballotLedgerEntry = voteHashChainService.appendVote(contest, contestOption, now);
+        credential.markUsed();
+        voteHashChainService.appendVote(contest, contestOption, now);
 
         return new BallotCastResponse(
-                ballotLedgerEntry.getId(),
                 contest.getId(),
-                ballotLedgerEntry.getLedgerIndex(),
-                ballotLedgerEntry.getPreviousHash(),
-                ballotLedgerEntry.getCurrentHash(),
-                ballotLedgerEntry.getCastAt()
+                true,
+                "Ballot accepted"
         );
     }
 
@@ -156,5 +152,26 @@ public class VotingService {
         if (voterProfile.getDateOfBirth().plusYears(18).isAfter(votingDate)) {
             throw new EligibilityException("Voters must be at least 18 years old to vote");
         }
+    }
+
+    private void assertVotingDistrictEligible(Contest contest, VotingDistrict votingDistrict) {
+        boolean eligible = switch (contest.getType()) {
+            case NATIONAL -> true;
+            case PROVINCIAL -> sameText(contest.getScopeProvince(), votingDistrict.getProvince());
+            case MUNICIPAL_PR -> sameText(contest.getScopeProvince(), votingDistrict.getProvince())
+                    && sameText(contest.getScopeMunicipality(), votingDistrict.getMunicipality());
+            case MUNICIPAL_WARD -> sameText(contest.getScopeProvince(), votingDistrict.getProvince())
+                    && sameText(contest.getScopeMunicipality(), votingDistrict.getMunicipality())
+                    && contest.getScopeWardNumber() != null
+                    && contest.getScopeWardNumber().equals(votingDistrict.getWardNumber());
+        };
+
+        if (!eligible) {
+            throw new EligibilityException("Voter is not eligible for this contest based on registered voting district");
+        }
+    }
+
+    private boolean sameText(String expected, String actual) {
+        return expected != null && actual != null && expected.trim().equalsIgnoreCase(actual.trim());
     }
 }

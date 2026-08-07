@@ -12,6 +12,7 @@ public interface ElectionRegistrationRepository extends JpaRepository<ElectionRe
 
     boolean existsByVoterProfileIdAndElectionId(UUID voterProfileId, UUID electionId);
 
+    @EntityGraph(attributePaths = {"voterProfile", "votingDistrict"})
     Optional<ElectionRegistration> findByVoterProfileUserAccountIdAndElectionIdAndStatus(
             UUID userAccountId,
             UUID electionId,

@@ -7,6 +7,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import io.github.humphreymahlangu.votetrust.support.PostgreSqlTestContainerSupport;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -16,11 +17,13 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
+import org.testcontainers.junit.jupiter.Testcontainers;
 
 @SpringBootTest(properties = "votetrust.security.cors.allowed-origins=https://portfolio.example")
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
-class DeploymentReadinessIntegrationTest {
+@Testcontainers(disabledWithoutDocker = true)
+class DeploymentReadinessIntegrationTest extends PostgreSqlTestContainerSupport {
 
     @Autowired
     private MockMvc mockMvc;
@@ -38,6 +41,22 @@ class DeploymentReadinessIntegrationTest {
                 .andExpect(status().isUnauthorized())
                 .andExpect(header().string(HttpHeaders.CONTENT_TYPE, startsWith(MediaType.APPLICATION_JSON_VALUE)))
                 .andExpect(jsonPath("$.message").value("Authentication is required"));
+    }
+
+    @Test
+    void openApiDocsArePublicAndDescribeCoreSecurityAndVotingEndpoints() throws Exception {
+        mockMvc.perform(get("/api-docs"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.info.title").value("VoteTrust API"))
+                .andExpect(jsonPath("$.components.securitySchemes.bearerAuth.scheme").value("bearer"))
+                .andExpect(jsonPath("$.paths['/api/v1/ballots'].post.summary").value("Cast an anonymous ballot"))
+                .andExpect(jsonPath("$.paths['/api/v1/admin/security-audit-events'].get.security[0].bearerAuth").isArray());
+    }
+
+    @Test
+    void swaggerUiIsPublic() throws Exception {
+        mockMvc.perform(get("/swagger-ui/index.html"))
+                .andExpect(status().isOk());
     }
 
     @Test

@@ -22,6 +22,8 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -163,13 +165,12 @@ public class TallyAuditService {
 
         return ballotLedgerEntryRepository.findByContestIdOrderByLedgerIndexAsc(contestId).stream()
                 .map(entry -> new ContestLedgerEntryResponse(
-                        entry.getId(),
                         entry.getLedgerIndex(),
                         entry.getContestOption().getId(),
                         entry.getPreviousHash(),
                         entry.getCurrentHash(),
                         entry.getNonce(),
-                        entry.getCastAt()
+                        LocalDate.ofInstant(entry.getCastAt(), ZoneOffset.UTC)
                 ))
                 .toList();
     }

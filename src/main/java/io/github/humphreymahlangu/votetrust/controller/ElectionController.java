@@ -1,13 +1,19 @@
 package io.github.humphreymahlangu.votetrust.controller;
 
+import io.github.humphreymahlangu.votetrust.dto.ApiErrorResponse;
 import io.github.humphreymahlangu.votetrust.dto.ElectionRegistrationRequest;
 import io.github.humphreymahlangu.votetrust.dto.ElectionRegistrationResponse;
 import io.github.humphreymahlangu.votetrust.dto.ElectionResponse;
 import io.github.humphreymahlangu.votetrust.security.UserPrincipal;
 import io.github.humphreymahlangu.votetrust.service.ElectionService;
 import io.github.humphreymahlangu.votetrust.service.VoterRegistrationService;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
@@ -23,6 +29,34 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/elections")
+@Tag(name = "Elections", description = "Public election browsing and authenticated voter registration")
+@ApiResponses({
+        @ApiResponse(
+                responseCode = "400",
+                description = "Request validation failed",
+                content = @Content(schema = @Schema(implementation = ApiErrorResponse.class))
+        ),
+        @ApiResponse(
+                responseCode = "401",
+                description = "Authentication is required for voter registration",
+                content = @Content(schema = @Schema(implementation = ApiErrorResponse.class))
+        ),
+        @ApiResponse(
+                responseCode = "404",
+                description = "Election or voting district was not found",
+                content = @Content(schema = @Schema(implementation = ApiErrorResponse.class))
+        ),
+        @ApiResponse(
+                responseCode = "409",
+                description = "Registration period is closed or the voter is already registered",
+                content = @Content(schema = @Schema(implementation = ApiErrorResponse.class))
+        ),
+        @ApiResponse(
+                responseCode = "422",
+                description = "South African ID or voter eligibility validation failed",
+                content = @Content(schema = @Schema(implementation = ApiErrorResponse.class))
+        )
+})
 public class ElectionController {
 
     private final ElectionService electionService;
@@ -34,20 +68,24 @@ public class ElectionController {
     }
 
     @GetMapping
-    @Operation(summary = "List elections")
+    @Operation(summary = "List elections", description = "Returns elections with lifecycle status and registration/voting windows.")
     public List<ElectionResponse> listElections() {
         return electionService.listElections();
     }
 
     @GetMapping("/{electionId}")
-    @Operation(summary = "Get election details")
+    @Operation(summary = "Get election details", description = "Returns a single election by identifier.")
     public ElectionResponse getElection(@PathVariable UUID electionId) {
         return electionService.getElection(electionId);
     }
 
     @PostMapping("/{electionId}/registrations")
     @ResponseStatus(HttpStatus.CREATED)
-    @Operation(summary = "Register authenticated voter for an election", security = @SecurityRequirement(name = "bearerAuth"))
+    @Operation(
+            summary = "Register authenticated voter for an election",
+            description = "Registers the authenticated voter during the registration window after South African ID and voting district validation.",
+            security = @SecurityRequirement(name = "bearerAuth")
+    )
     public ElectionRegistrationResponse registerForElection(
             @AuthenticationPrincipal UserPrincipal principal,
             @PathVariable UUID electionId,

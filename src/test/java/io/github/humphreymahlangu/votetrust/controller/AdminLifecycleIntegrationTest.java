@@ -7,6 +7,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.jayway.jsonpath.JsonPath;
+import io.github.humphreymahlangu.votetrust.support.PostgreSqlTestContainerSupport;
 import io.github.humphreymahlangu.votetrust.repository.AnonymousVotingCredentialRepository;
 import io.github.humphreymahlangu.votetrust.repository.BallotLedgerEntryRepository;
 import io.github.humphreymahlangu.votetrust.repository.ContestOptionRepository;
@@ -28,6 +29,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import org.testcontainers.junit.jupiter.Testcontainers;
 
 @SpringBootTest(properties = {
         "votetrust.admin.bootstrap.enabled=true",
@@ -35,7 +37,8 @@ import org.springframework.test.web.servlet.MvcResult;
 })
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
-class AdminLifecycleIntegrationTest {
+@Testcontainers(disabledWithoutDocker = true)
+class AdminLifecycleIntegrationTest extends PostgreSqlTestContainerSupport {
 
     private static final String BOOTSTRAP_TOKEN = "test-admin-bootstrap-token-at-least-32-characters";
 
@@ -158,6 +161,9 @@ class AdminLifecycleIntegrationTest {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.name").value("Ward 1 Councillor"))
                 .andExpect(jsonPath("$.status").value("DRAFT"))
+                .andExpect(jsonPath("$.scopeProvince").value("Western Cape"))
+                .andExpect(jsonPath("$.scopeMunicipality").value("City of Cape Town"))
+                .andExpect(jsonPath("$.scopeWardNumber").value(1))
                 .andReturn();
         String contestId = JsonPath.read(contestResult.getResponse().getContentAsString(), "$.id");
 
@@ -201,6 +207,40 @@ class AdminLifecycleIntegrationTest {
                         .content(statusBody("OPEN")))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.message").value("Contest must have at least two ballot options before opening"));
+    }
+
+    @Test
+    void adminCannotCreateContestWithWrongElectionTypeOrMissingScope() throws Exception {
+        String adminToken = bootstrapAdminAndReturnToken("admin.scope.invalid@example.com");
+        String electionId = createElectionAndReturnId(adminToken);
+
+        String nationalContestBody = """
+                {
+                  "name": "National Assembly",
+                  "type": "NATIONAL",
+                  "displayOrder": 2
+                }
+                """;
+        mockMvc.perform(post("/api/v1/admin/elections/{electionId}/contests", electionId)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(nationalContestBody))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value("Contest type NATIONAL is not valid for a MUNICIPAL election"));
+
+        String unscopedWardContestBody = """
+                {
+                  "name": "Unscoped Ward Contest",
+                  "type": "MUNICIPAL_WARD",
+                  "displayOrder": 3
+                }
+                """;
+        mockMvc.perform(post("/api/v1/admin/elections/{electionId}/contests", electionId)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(unscopedWardContestBody))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value("Municipal ward contests require scopeProvince, scopeMunicipality, and scopeWardNumber"));
     }
 
     private String bootstrapAdminAndReturnToken(String email) throws Exception {
@@ -343,7 +383,10 @@ class AdminLifecycleIntegrationTest {
                 {
                   "name": "Ward 1 Councillor",
                   "type": "MUNICIPAL_WARD",
-                  "displayOrder": 1
+                  "displayOrder": 1,
+                  "scopeProvince": "Western Cape",
+                  "scopeMunicipality": "City of Cape Town",
+                  "scopeWardNumber": 1
                 }
                 """;
     }

@@ -1,14 +1,17 @@
 package io.github.humphreymahlangu.votetrust.dto;
 
-import java.time.Instant;
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.UUID;
 
+@Schema(description = "Receipt-resistant ballot acceptance response")
 public record BallotCastResponse(
-        UUID ballotLedgerEntryId,
+        @Schema(description = "Contest that accepted the ballot", example = "11111111-1111-1111-1111-111111111111")
         UUID contestId,
-        Long ledgerIndex,
-        String previousHash,
-        String currentHash,
-        Instant castAt
+
+        @Schema(description = "Whether the ballot was accepted", example = "true")
+        boolean accepted,
+
+        @Schema(description = "Short confirmation message without receipt-like ledger data", example = "Ballot accepted")
+        String message
 ) {
 }
