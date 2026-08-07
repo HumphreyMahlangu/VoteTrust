@@ -124,6 +124,7 @@ The current implementation demonstrates:
 * Disabled-by-default admin bootstrap flow for first-admin creation
 * Admin-only election, contest, option, and voting district management APIs
 * Election and voting district read APIs
+* Geographic ballot eligibility for national, provincial, municipal PR, and municipal ward contests
 * Voter registration with South African ID validation and registration-window enforcement
 * Anonymous one-time voting credentials
 * Digital ballot submission
@@ -199,6 +200,15 @@ Admin-managed elections and contests are created in `DRAFT` status. Status updat
 * Contest: `DRAFT` -> `OPEN` -> `CLOSED`
 
 The bootstrap endpoint is intended only for first-admin creation. It requires `X-VoteTrust-Bootstrap-Token`, only works when bootstrap is enabled, and refuses to create another admin after an admin account already exists.
+
+Contests include geographic scope fields used for eligibility checks before voting credentials are issued:
+
+* `NATIONAL`: no scope fields.
+* `PROVINCIAL`: `scopeProvince`.
+* `MUNICIPAL_PR`: `scopeProvince` and `scopeMunicipality`.
+* `MUNICIPAL_WARD`: `scopeProvince`, `scopeMunicipality`, and `scopeWardNumber`.
+
+A voter receives a credential only when their registered voting district matches the contest scope.
 
 ## Documentation
 

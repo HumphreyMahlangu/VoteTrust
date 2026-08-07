@@ -13,6 +13,7 @@ import io.github.humphreymahlangu.votetrust.entity.ElectionRegistration;
 import io.github.humphreymahlangu.votetrust.entity.ElectionStatus;
 import io.github.humphreymahlangu.votetrust.entity.RegistrationStatus;
 import io.github.humphreymahlangu.votetrust.entity.VoterProfile;
+import io.github.humphreymahlangu.votetrust.entity.VotingDistrict;
 import io.github.humphreymahlangu.votetrust.entity.VotingRight;
 import io.github.humphreymahlangu.votetrust.exception.DuplicateResourceException;
 import io.github.humphreymahlangu.votetrust.exception.EligibilityException;
@@ -81,6 +82,7 @@ public class VotingService {
                 .orElseThrow(() -> new EligibilityException("Voter is not registered for this election"));
         VoterProfile voterProfile = registration.getVoterProfile();
         assertOldEnoughToVote(voterProfile, election);
+        assertVotingDistrictEligible(contest, registration.getVotingDistrict());
 
         VotingRight votingRight = votingRightRepository
                 .findByVoterProfileIdAndContestId(voterProfile.getId(), contestId)
@@ -156,5 +158,26 @@ public class VotingService {
         if (voterProfile.getDateOfBirth().plusYears(18).isAfter(votingDate)) {
             throw new EligibilityException("Voters must be at least 18 years old to vote");
         }
+    }
+
+    private void assertVotingDistrictEligible(Contest contest, VotingDistrict votingDistrict) {
+        boolean eligible = switch (contest.getType()) {
+            case NATIONAL -> true;
+            case PROVINCIAL -> sameText(contest.getScopeProvince(), votingDistrict.getProvince());
+            case MUNICIPAL_PR -> sameText(contest.getScopeProvince(), votingDistrict.getProvince())
+                    && sameText(contest.getScopeMunicipality(), votingDistrict.getMunicipality());
+            case MUNICIPAL_WARD -> sameText(contest.getScopeProvince(), votingDistrict.getProvince())
+                    && sameText(contest.getScopeMunicipality(), votingDistrict.getMunicipality())
+                    && contest.getScopeWardNumber() != null
+                    && contest.getScopeWardNumber().equals(votingDistrict.getWardNumber());
+        };
+
+        if (!eligible) {
+            throw new EligibilityException("Voter is not eligible for this contest based on registered voting district");
+        }
+    }
+
+    private boolean sameText(String expected, String actual) {
+        return expected != null && actual != null && expected.trim().equalsIgnoreCase(actual.trim());
     }
 }

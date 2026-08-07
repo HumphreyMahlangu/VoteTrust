@@ -10,6 +10,9 @@ public record ContestResponse(
         String type,
         String status,
         Integer displayOrder,
+        String scopeProvince,
+        String scopeMunicipality,
+        Integer scopeWardNumber,
         List<ContestOptionResponse> options
 ) {
 }

@@ -18,6 +18,16 @@ public record CreateContestRequest(
         @NotNull
         @Min(1)
         @Max(9999)
-        Integer displayOrder
+        Integer displayOrder,
+
+        @Size(max = 80)
+        String scopeProvince,
+
+        @Size(max = 160)
+        String scopeMunicipality,
+
+        @Min(1)
+        @Max(9999)
+        Integer scopeWardNumber
 ) {
 }

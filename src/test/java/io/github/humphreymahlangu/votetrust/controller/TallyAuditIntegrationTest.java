@@ -265,6 +265,9 @@ class TallyAuditIntegrationTest {
                 "Municipal Ward Councillor",
                 ContestType.MUNICIPAL_WARD,
                 contestStatus,
+                1,
+                "Western Cape",
+                "City of Cape Town",
                 1
         ));
         ContestOption optionA = contestOptionRepository.save(new ContestOption(

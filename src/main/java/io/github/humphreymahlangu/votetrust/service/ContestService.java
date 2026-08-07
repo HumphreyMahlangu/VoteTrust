@@ -50,6 +50,9 @@ public class ContestService {
                 contest.getType().name(),
                 contest.getStatus().name(),
                 contest.getDisplayOrder(),
+                contest.getScopeProvince(),
+                contest.getScopeMunicipality(),
+                contest.getScopeWardNumber(),
                 contestOptionRepository.findByContestIdOrderByDisplayOrderAscNameAsc(contest.getId())
                         .stream()
                         .map(this::toOptionResponse)
