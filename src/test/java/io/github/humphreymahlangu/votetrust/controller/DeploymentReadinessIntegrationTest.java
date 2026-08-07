@@ -44,6 +44,22 @@ class DeploymentReadinessIntegrationTest extends PostgreSqlTestContainerSupport 
     }
 
     @Test
+    void openApiDocsArePublicAndDescribeCoreSecurityAndVotingEndpoints() throws Exception {
+        mockMvc.perform(get("/api-docs"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.info.title").value("VoteTrust API"))
+                .andExpect(jsonPath("$.components.securitySchemes.bearerAuth.scheme").value("bearer"))
+                .andExpect(jsonPath("$.paths['/api/v1/ballots'].post.summary").value("Cast an anonymous ballot"))
+                .andExpect(jsonPath("$.paths['/api/v1/admin/security-audit-events'].get.security[0].bearerAuth").isArray());
+    }
+
+    @Test
+    void swaggerUiIsPublic() throws Exception {
+        mockMvc.perform(get("/swagger-ui/index.html"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
     void configuredCorsOriginIsAllowedForBrowserClients() throws Exception {
         mockMvc.perform(options("/api/v1/elections")
                         .header(HttpHeaders.ORIGIN, "https://portfolio.example")

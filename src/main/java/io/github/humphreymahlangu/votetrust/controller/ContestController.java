@@ -1,12 +1,18 @@
 package io.github.humphreymahlangu.votetrust.controller;
 
+import io.github.humphreymahlangu.votetrust.dto.ApiErrorResponse;
 import io.github.humphreymahlangu.votetrust.dto.ContestResponse;
 import io.github.humphreymahlangu.votetrust.dto.VotingCredentialResponse;
 import io.github.humphreymahlangu.votetrust.security.UserPrincipal;
 import io.github.humphreymahlangu.votetrust.service.ContestService;
 import io.github.humphreymahlangu.votetrust.service.VotingService;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
@@ -20,6 +26,39 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/elections/{electionId}/contests")
+@Tag(name = "Contests", description = "Election contest browsing and anonymous credential issuance")
+@ApiResponses({
+        @ApiResponse(
+                responseCode = "401",
+                description = "Authentication is required for credential issuance",
+                content = @Content(schema = @Schema(implementation = ApiErrorResponse.class))
+        ),
+        @ApiResponse(
+                responseCode = "403",
+                description = "Authenticated account cannot access the requested operation",
+                content = @Content(schema = @Schema(implementation = ApiErrorResponse.class))
+        ),
+        @ApiResponse(
+                responseCode = "404",
+                description = "Election or contest was not found",
+                content = @Content(schema = @Schema(implementation = ApiErrorResponse.class))
+        ),
+        @ApiResponse(
+                responseCode = "409",
+                description = "Voting is closed or a credential was already issued",
+                content = @Content(schema = @Schema(implementation = ApiErrorResponse.class))
+        ),
+        @ApiResponse(
+                responseCode = "422",
+                description = "Voter is not eligible for this contest",
+                content = @Content(schema = @Schema(implementation = ApiErrorResponse.class))
+        ),
+        @ApiResponse(
+                responseCode = "429",
+                description = "Credential issuance rate limit exceeded",
+                content = @Content(schema = @Schema(implementation = ApiErrorResponse.class))
+        )
+})
 public class ContestController {
 
     private final ContestService contestService;
@@ -31,14 +70,18 @@ public class ContestController {
     }
 
     @GetMapping
-    @Operation(summary = "List contests and ballot options for an election")
+    @Operation(summary = "List contests and ballot options", description = "Returns contests configured for the election, including geographic scope fields used for eligibility.")
     public List<ContestResponse> listContests(@PathVariable UUID electionId) {
         return contestService.listContests(electionId);
     }
 
     @PostMapping("/{contestId}/credentials")
     @ResponseStatus(HttpStatus.CREATED)
-    @Operation(summary = "Issue an anonymous one-time voting credential", security = @SecurityRequirement(name = "bearerAuth"))
+    @Operation(
+            summary = "Issue an anonymous one-time voting credential",
+            description = "Issues one credential per registered voter per contest after age, registration, voting-window, and geographic eligibility checks pass.",
+            security = @SecurityRequirement(name = "bearerAuth")
+    )
     public VotingCredentialResponse issueVotingCredential(
             @AuthenticationPrincipal UserPrincipal principal,
             @PathVariable UUID electionId,

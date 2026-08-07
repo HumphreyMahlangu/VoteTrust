@@ -225,7 +225,9 @@ A voter receives a credential only when their registered voting district matches
 
 ## Documentation
 
-* OpenAPI (Swagger)
+* OpenAPI JSON: `GET /api-docs`
+* Swagger UI: `GET /swagger-ui.html`
+* Controller groups include tags, operation descriptions, bearer-token requirements, error responses, and request/response schema examples.
 
 ## Testing
 
