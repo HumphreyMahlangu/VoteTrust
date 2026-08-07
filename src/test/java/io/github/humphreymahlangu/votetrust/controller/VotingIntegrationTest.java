@@ -19,6 +19,7 @@ import io.github.humphreymahlangu.votetrust.entity.Election;
 import io.github.humphreymahlangu.votetrust.entity.ElectionRegistration;
 import io.github.humphreymahlangu.votetrust.entity.ElectionStatus;
 import io.github.humphreymahlangu.votetrust.entity.ElectionType;
+import io.github.humphreymahlangu.votetrust.entity.LedgerState;
 import io.github.humphreymahlangu.votetrust.entity.RegistrationStatus;
 import io.github.humphreymahlangu.votetrust.entity.UserAccount;
 import io.github.humphreymahlangu.votetrust.entity.VoterProfile;

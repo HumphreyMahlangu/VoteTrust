@@ -4,10 +4,12 @@ import io.github.humphreymahlangu.votetrust.dto.AuthResponse;
 import io.github.humphreymahlangu.votetrust.dto.LoginRequest;
 import io.github.humphreymahlangu.votetrust.dto.RegisterRequest;
 import io.github.humphreymahlangu.votetrust.dto.UserAccountResponse;
+import io.github.humphreymahlangu.votetrust.security.SecurityAuditMetadata;
 import io.github.humphreymahlangu.votetrust.security.UserPrincipal;
 import io.github.humphreymahlangu.votetrust.service.AuthService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -31,14 +33,14 @@ public class AuthController {
     @PostMapping("/register")
     @ResponseStatus(HttpStatus.CREATED)
     @Operation(summary = "Create a platform account")
-    public AuthResponse register(@Valid @RequestBody RegisterRequest request) {
-        return authService.register(request);
+    public AuthResponse register(@Valid @RequestBody RegisterRequest request, HttpServletRequest servletRequest) {
+        return authService.register(request, SecurityAuditMetadata.from(servletRequest));
     }
 
     @PostMapping("/login")
     @Operation(summary = "Authenticate and issue a JWT")
-    public AuthResponse login(@Valid @RequestBody LoginRequest request) {
-        return authService.login(request);
+    public AuthResponse login(@Valid @RequestBody LoginRequest request, HttpServletRequest servletRequest) {
+        return authService.login(request, SecurityAuditMetadata.from(servletRequest));
     }
 
     @GetMapping("/me")

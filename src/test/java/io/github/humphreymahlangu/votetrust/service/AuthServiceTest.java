@@ -41,11 +41,14 @@ class AuthServiceTest {
     @Mock
     private JwtService jwtService;
 
+    @Mock
+    private SecurityAuditService securityAuditService;
+
     private AuthService authService;
 
     @BeforeEach
     void setUp() {
-        authService = new AuthService(userAccountRepository, passwordEncoder, jwtService);
+        authService = new AuthService(userAccountRepository, passwordEncoder, jwtService, securityAuditService);
     }
 
     @Test

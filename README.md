@@ -135,6 +135,8 @@ The current implementation demonstrates:
 * Tamper-evident SHA-256 hash chain for ballot ledger auditing
 * Final result tallying after voting closes
 * Public audit and ledger verification endpoints
+* Security audit events for authentication, admin bootstrap, and rate-limit blocks
+* Configurable rate limiting for sensitive write endpoints
 * OpenAPI / Swagger documentation
 * Docker Compose deployment with PostgreSQL
 * GitHub Actions CI workflow
@@ -170,6 +172,12 @@ Set these secrets through environment variables. Do not commit real values.
 * `VOTETRUST_ID_HASH_PEPPER`: HMAC pepper for hashing South African ID numbers with at least 32 characters.
 * `VOTETRUST_VOTE_CREDENTIAL_PEPPER`: HMAC pepper for hashing anonymous voting credentials with at least 32 characters.
 * `VOTETRUST_CORS_ALLOWED_ORIGINS`: Comma-separated browser origins allowed to call the API.
+* `VOTETRUST_RATE_LIMIT_ENABLED`: Enables the application-level sensitive endpoint rate limiter.
+* `VOTETRUST_RATE_LIMIT_WINDOW_SECONDS`: Fixed rate-limit window length in seconds.
+* `VOTETRUST_RATE_LIMIT_AUTH_LIMIT`: Requests per window for login and platform-account registration.
+* `VOTETRUST_RATE_LIMIT_BOOTSTRAP_LIMIT`: Requests per window for first-admin bootstrap.
+* `VOTETRUST_RATE_LIMIT_CREDENTIAL_LIMIT`: Requests per window for anonymous credential issuance.
+* `VOTETRUST_RATE_LIMIT_BALLOT_LIMIT`: Requests per window for anonymous ballot submission.
 * `VOTETRUST_ADMIN_BOOTSTRAP_ENABLED`: Enables the first-admin bootstrap endpoint when set to `true`.
 * `VOTETRUST_ADMIN_BOOTSTRAP_TOKEN`: One-time bootstrap token with at least 32 characters.
 
@@ -193,8 +201,11 @@ Current implemented endpoints include:
 * `GET /api/v1/elections/{electionId}/contests/{contestId}/results`
 * `GET /api/v1/elections/{electionId}/contests/{contestId}/audit`
 * `GET /api/v1/elections/{electionId}/contests/{contestId}/ledger`
+* `GET /api/v1/admin/security-audit-events`
 
 Results, audit summaries, and public ledger entries are exposed only after the election status is `COMPLETED`, the contest status is `CLOSED`, and the voting window has ended. Public ledger entries expose a coarse `recordedDate` instead of exact cast timestamps to reduce timing-correlation risk.
+
+Security audit events are admin-only and intentionally limited to account authentication, admin bootstrap, and rate-limit blocks. Anonymous voting credentials and ballot submissions are not linked to voter identity in the security audit log.
 
 Admin-managed elections and contests are created in `DRAFT` status. Status updates must follow the supported lifecycle:
 
@@ -269,7 +280,10 @@ docker build -t votetrust-api:local .
 ## Production Notes
 
 * Do not reuse `.env.example` values outside local development.
+* Provide `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME`, and `SPRING_DATASOURCE_PASSWORD`; the application no longer ships with hardcoded database credential defaults.
 * Set `VOTETRUST_JWT_SECRET`, `VOTETRUST_ID_HASH_PEPPER`, and `VOTETRUST_VOTE_CREDENTIAL_PEPPER` from a secret manager.
+* Keep JWT access tokens short-lived. The current design does not issue refresh tokens, so token revocation is handled by short token lifetime rather than a revocation store.
+* The built-in rate limiter is suitable for a single API instance. For horizontally scaled production deployments, enforce distributed rate limiting at the API gateway or Redis-backed service layer.
 * Keep `VOTETRUST_ADMIN_BOOTSTRAP_ENABLED=false` except during a controlled first-admin bootstrap window.
 * Rotate and remove any exposed `VOTETRUST_ADMIN_BOOTSTRAP_TOKEN` value after first-admin creation.
 * Set `VOTETRUST_CORS_ALLOWED_ORIGINS` to the exact frontend domains that should call the API.
@@ -294,7 +308,7 @@ The project remains an educational portfolio simulation and should not be presen
 Potential next steps:
 
 * Refresh-token flow and token revocation.
-* Database-backed audit events for administrative actions.
+* Expanded database-backed audit events for non-sensitive administrative actions.
 * API versioned seed data for demo elections.
 * Cloud deployment pipeline and production observability.
 * Independent cryptographic review of the anonymous credential and ledger design.

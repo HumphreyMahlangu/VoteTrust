@@ -5,6 +5,8 @@ import io.github.humphreymahlangu.votetrust.security.CorsProperties;
 import io.github.humphreymahlangu.votetrust.security.IdentityHashProperties;
 import io.github.humphreymahlangu.votetrust.security.JwtAuthenticationFilter;
 import io.github.humphreymahlangu.votetrust.security.JwtProperties;
+import io.github.humphreymahlangu.votetrust.security.RateLimitProperties;
+import io.github.humphreymahlangu.votetrust.security.RateLimitingFilter;
 import io.github.humphreymahlangu.votetrust.security.RestAccessDeniedHandler;
 import io.github.humphreymahlangu.votetrust.security.RestAuthenticationEntryPoint;
 import io.github.humphreymahlangu.votetrust.security.VoteCredentialProperties;
@@ -35,13 +37,15 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
         IdentityHashProperties.class,
         VoteCredentialProperties.class,
         CorsProperties.class,
-        AdminBootstrapProperties.class
+        AdminBootstrapProperties.class,
+        RateLimitProperties.class
 })
 public class SecurityConfig {
 
     @Bean
     SecurityFilterChain securityFilterChain(
             HttpSecurity http,
+            RateLimitingFilter rateLimitingFilter,
             JwtAuthenticationFilter jwtAuthenticationFilter,
             RestAuthenticationEntryPoint authenticationEntryPoint,
             RestAccessDeniedHandler accessDeniedHandler
@@ -62,8 +66,8 @@ public class SecurityConfig {
                                 "/actuator/health/**",
                                 "/api-docs/**",
                                 "/v3/api-docs/**",
-                        "/swagger-ui.html",
-                        "/swagger-ui/**"
+                                "/swagger-ui.html",
+                                "/swagger-ui/**"
                         ).permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/admin/bootstrap").permitAll()
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
@@ -73,6 +77,7 @@ public class SecurityConfig {
                                 "/api/v1/voting-districts/**"
                         ).permitAll()
                         .anyRequest().authenticated())
+                .addFilterBefore(rateLimitingFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 .build();
     }
@@ -104,6 +109,13 @@ public class SecurityConfig {
     @Bean
     FilterRegistrationBean<JwtAuthenticationFilter> jwtFilterRegistration(JwtAuthenticationFilter jwtAuthenticationFilter) {
         FilterRegistrationBean<JwtAuthenticationFilter> registration = new FilterRegistrationBean<>(jwtAuthenticationFilter);
+        registration.setEnabled(false);
+        return registration;
+    }
+
+    @Bean
+    FilterRegistrationBean<RateLimitingFilter> rateLimitFilterRegistration(RateLimitingFilter rateLimitingFilter) {
+        FilterRegistrationBean<RateLimitingFilter> registration = new FilterRegistrationBean<>(rateLimitingFilter);
         registration.setEnabled(false);
         return registration;
     }
