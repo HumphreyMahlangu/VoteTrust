@@ -12,8 +12,14 @@ import io.github.humphreymahlangu.votetrust.entity.ElectionType;
 import io.github.humphreymahlangu.votetrust.entity.VotingDistrict;
 import io.github.humphreymahlangu.votetrust.repository.ElectionRegistrationRepository;
 import io.github.humphreymahlangu.votetrust.repository.ElectionRepository;
+import io.github.humphreymahlangu.votetrust.repository.AnonymousVotingCredentialRepository;
+import io.github.humphreymahlangu.votetrust.repository.BallotLedgerEntryRepository;
+import io.github.humphreymahlangu.votetrust.repository.ContestOptionRepository;
+import io.github.humphreymahlangu.votetrust.repository.ContestRepository;
+import io.github.humphreymahlangu.votetrust.repository.LedgerStateRepository;
 import io.github.humphreymahlangu.votetrust.repository.UserAccountRepository;
 import io.github.humphreymahlangu.votetrust.repository.VoterProfileRepository;
+import io.github.humphreymahlangu.votetrust.repository.VotingRightRepository;
 import io.github.humphreymahlangu.votetrust.repository.VotingDistrictRepository;
 import java.time.Clock;
 import java.time.Instant;
@@ -43,6 +49,24 @@ class VoterRegistrationIntegrationTest {
     private MockMvc mockMvc;
 
     @Autowired
+    private BallotLedgerEntryRepository ballotLedgerEntryRepository;
+
+    @Autowired
+    private LedgerStateRepository ledgerStateRepository;
+
+    @Autowired
+    private AnonymousVotingCredentialRepository anonymousVotingCredentialRepository;
+
+    @Autowired
+    private VotingRightRepository votingRightRepository;
+
+    @Autowired
+    private ContestOptionRepository contestOptionRepository;
+
+    @Autowired
+    private ContestRepository contestRepository;
+
+    @Autowired
     private ElectionRepository electionRepository;
 
     @Autowired
@@ -59,6 +83,12 @@ class VoterRegistrationIntegrationTest {
 
     @BeforeEach
     void cleanDatabase() {
+        ballotLedgerEntryRepository.deleteAll();
+        ledgerStateRepository.deleteAll();
+        anonymousVotingCredentialRepository.deleteAll();
+        votingRightRepository.deleteAll();
+        contestOptionRepository.deleteAll();
+        contestRepository.deleteAll();
         electionRegistrationRepository.deleteAll();
         voterProfileRepository.deleteAll();
         electionRepository.deleteAll();

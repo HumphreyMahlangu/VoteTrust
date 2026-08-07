@@ -5,6 +5,7 @@ import io.github.humphreymahlangu.votetrust.security.IdentityHashProperties;
 import io.github.humphreymahlangu.votetrust.security.JwtProperties;
 import io.github.humphreymahlangu.votetrust.security.RestAccessDeniedHandler;
 import io.github.humphreymahlangu.votetrust.security.RestAuthenticationEntryPoint;
+import io.github.humphreymahlangu.votetrust.security.VoteCredentialProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
@@ -22,7 +23,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 
 @Configuration
 @EnableMethodSecurity
-@EnableConfigurationProperties({JwtProperties.class, IdentityHashProperties.class})
+@EnableConfigurationProperties({JwtProperties.class, IdentityHashProperties.class, VoteCredentialProperties.class})
 public class SecurityConfig {
 
     @Bean
@@ -43,12 +44,17 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/api/v1/auth/register",
                                 "/api/v1/auth/login",
+                                "/api/v1/ballots",
                                 "/api-docs/**",
                                 "/v3/api-docs/**",
                                 "/swagger-ui.html",
                                 "/swagger-ui/**"
                         ).permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/v1/elections/**", "/api/v1/voting-districts/**").permitAll()
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/v1/elections/**",
+                                "/api/v1/voting-districts/**"
+                        ).permitAll()
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 .build();

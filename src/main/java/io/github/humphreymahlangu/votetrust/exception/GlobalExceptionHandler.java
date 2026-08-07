@@ -64,6 +64,22 @@ public class GlobalExceptionHandler {
         return error(HttpStatus.CONFLICT, exception.getMessage(), request.getRequestURI());
     }
 
+    @ExceptionHandler(VotingClosedException.class)
+    ResponseEntity<ApiErrorResponse> handleVotingClosed(
+            VotingClosedException exception,
+            HttpServletRequest request
+    ) {
+        return error(HttpStatus.CONFLICT, exception.getMessage(), request.getRequestURI());
+    }
+
+    @ExceptionHandler(InvalidVotingCredentialException.class)
+    ResponseEntity<ApiErrorResponse> handleInvalidVotingCredential(
+            InvalidVotingCredentialException exception,
+            HttpServletRequest request
+    ) {
+        return error(HttpStatus.UNAUTHORIZED, exception.getMessage(), request.getRequestURI());
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     ResponseEntity<ApiErrorResponse> handleValidation(
             MethodArgumentNotValidException exception,
