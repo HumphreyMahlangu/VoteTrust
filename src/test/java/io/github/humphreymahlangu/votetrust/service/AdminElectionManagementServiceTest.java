@@ -1,0 +1,134 @@
+package io.github.humphreymahlangu.votetrust.service;
+
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.anyCollection;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import io.github.humphreymahlangu.votetrust.dto.ContestStatusUpdateRequest;
+import io.github.humphreymahlangu.votetrust.dto.CreateContestOptionRequest;
+import io.github.humphreymahlangu.votetrust.entity.Contest;
+import io.github.humphreymahlangu.votetrust.entity.ContestOption;
+import io.github.humphreymahlangu.votetrust.entity.ContestOptionType;
+import io.github.humphreymahlangu.votetrust.entity.ContestStatus;
+import io.github.humphreymahlangu.votetrust.entity.ContestType;
+import io.github.humphreymahlangu.votetrust.entity.Election;
+import io.github.humphreymahlangu.votetrust.entity.ElectionStatus;
+import io.github.humphreymahlangu.votetrust.entity.ElectionType;
+import io.github.humphreymahlangu.votetrust.exception.DuplicateResourceException;
+import io.github.humphreymahlangu.votetrust.exception.ElectionLifecycleException;
+import io.github.humphreymahlangu.votetrust.repository.ContestOptionRepository;
+import io.github.humphreymahlangu.votetrust.repository.ContestRepository;
+import io.github.humphreymahlangu.votetrust.repository.ElectionRepository;
+import io.github.humphreymahlangu.votetrust.repository.VotingDistrictRepository;
+import java.lang.reflect.Field;
+import java.time.Instant;
+import java.util.Optional;
+import java.util.UUID;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+@ExtendWith(MockitoExtension.class)
+class AdminElectionManagementServiceTest {
+
+    @Mock
+    private VotingDistrictRepository votingDistrictRepository;
+
+    @Mock
+    private ElectionRepository electionRepository;
+
+    @Mock
+    private ContestRepository contestRepository;
+
+    @Mock
+    private ContestOptionRepository contestOptionRepository;
+
+    private AdminElectionManagementService adminElectionManagementService;
+
+    @BeforeEach
+    void setUp() {
+        adminElectionManagementService = new AdminElectionManagementService(
+                votingDistrictRepository,
+                electionRepository,
+                contestRepository,
+                contestOptionRepository
+        );
+    }
+
+    @Test
+    void openingContestRequiresAtLeastTwoValidVoteOptions() throws Exception {
+        UUID electionId = UUID.randomUUID();
+        UUID contestId = UUID.randomUUID();
+        Contest contest = contest(ElectionStatus.REGISTRATION_CLOSED, ContestStatus.DRAFT);
+        setId(contest, contestId);
+
+        when(contestRepository.findByIdAndElectionId(contestId, electionId)).thenReturn(Optional.of(contest));
+        when(contestOptionRepository.countByContestIdAndOptionTypeIn(eq(contestId), anyCollection()))
+                .thenReturn(1L);
+
+        assertThatThrownBy(() -> adminElectionManagementService.updateContestStatus(
+                electionId,
+                contestId,
+                new ContestStatusUpdateRequest(ContestStatus.OPEN)
+        ))
+                .isInstanceOf(ElectionLifecycleException.class)
+                .hasMessage("Contest must have at least two valid vote options before opening");
+    }
+
+    @Test
+    void duplicateBlankBallotOptionIsRejectedBeforeDatabaseConstraint() throws Exception {
+        UUID electionId = UUID.randomUUID();
+        UUID contestId = UUID.randomUUID();
+        Contest contest = contest(ElectionStatus.DRAFT, ContestStatus.DRAFT);
+        setId(contest, contestId);
+
+        when(contestRepository.findByIdAndElectionId(contestId, electionId)).thenReturn(Optional.of(contest));
+        when(contestOptionRepository.existsByContestIdAndNameIgnoreCase(contestId, "Blank ballot"))
+                .thenReturn(false);
+        when(contestOptionRepository.existsByContestIdAndDisplayOrder(contestId, 98)).thenReturn(false);
+        when(contestOptionRepository.existsByContestIdAndOptionType(contestId, ContestOptionType.BLANK_BALLOT))
+                .thenReturn(true);
+
+        assertThatThrownBy(() -> adminElectionManagementService.createContestOption(
+                electionId,
+                contestId,
+                new CreateContestOptionRequest("Blank ballot", ContestOptionType.BLANK_BALLOT, 98)
+        ))
+                .isInstanceOf(DuplicateResourceException.class)
+                .hasMessage("A BLANK_BALLOT option already exists for this contest");
+        verify(contestOptionRepository, never()).save(org.mockito.ArgumentMatchers.any(ContestOption.class));
+    }
+
+    private Contest contest(ElectionStatus electionStatus, ContestStatus contestStatus) {
+        Election election = new Election(
+                "2026 Local Government Election",
+                ElectionType.MUNICIPAL,
+                Instant.parse("2026-07-01T00:00:00Z"),
+                Instant.parse("2026-08-01T00:00:00Z"),
+                Instant.parse("2026-08-07T07:00:00Z"),
+                Instant.parse("2026-08-07T21:00:00Z"),
+                electionStatus
+        );
+        return new Contest(
+                election,
+                "Municipal Ward Councillor",
+                ContestType.MUNICIPAL_WARD,
+                contestStatus,
+                1,
+                "Western Cape",
+                "City of Cape Town",
+                1
+        );
+    }
+
+    private void setId(Contest contest, UUID contestId) throws Exception {
+        Field idField = Contest.class.getDeclaredField("id");
+        idField.setAccessible(true);
+        idField.set(contest, contestId);
+    }
+}

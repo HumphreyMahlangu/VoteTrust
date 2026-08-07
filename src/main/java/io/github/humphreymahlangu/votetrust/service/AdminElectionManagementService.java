@@ -12,6 +12,7 @@ import io.github.humphreymahlangu.votetrust.dto.ElectionStatusUpdateRequest;
 import io.github.humphreymahlangu.votetrust.dto.VotingDistrictResponse;
 import io.github.humphreymahlangu.votetrust.entity.Contest;
 import io.github.humphreymahlangu.votetrust.entity.ContestOption;
+import io.github.humphreymahlangu.votetrust.entity.ContestOptionType;
 import io.github.humphreymahlangu.votetrust.entity.ContestStatus;
 import io.github.humphreymahlangu.votetrust.entity.ContestType;
 import io.github.humphreymahlangu.votetrust.entity.Election;
@@ -25,6 +26,7 @@ import io.github.humphreymahlangu.votetrust.repository.ContestOptionRepository;
 import io.github.humphreymahlangu.votetrust.repository.ContestRepository;
 import io.github.humphreymahlangu.votetrust.repository.ElectionRepository;
 import io.github.humphreymahlangu.votetrust.repository.VotingDistrictRepository;
+import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
@@ -32,6 +34,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class AdminElectionManagementService {
+
+    private static final List<ContestOptionType> VALID_VOTE_OPTION_TYPES = List.of(
+            ContestOptionType.PARTY,
+            ContestOptionType.INDEPENDENT_CANDIDATE
+    );
 
     private final VotingDistrictRepository votingDistrictRepository;
     private final ElectionRepository electionRepository;
@@ -146,6 +153,12 @@ public class AdminElectionManagementService {
         }
         if (contestOptionRepository.existsByContestIdAndDisplayOrder(contestId, request.displayOrder())) {
             throw new DuplicateResourceException("A ballot option with this display order already exists for this contest");
+        }
+        if (request.optionType().isNonValidBallot()
+                && contestOptionRepository.existsByContestIdAndOptionType(contestId, request.optionType())) {
+            throw new DuplicateResourceException(
+                    "A " + request.optionType().name() + " option already exists for this contest"
+            );
         }
 
         ContestOption contestOption = contestOptionRepository.save(new ContestOption(
@@ -280,8 +293,8 @@ public class AdminElectionManagementService {
             if (electionStatus != ElectionStatus.REGISTRATION_CLOSED && electionStatus != ElectionStatus.VOTING_OPEN) {
                 throw new ElectionLifecycleException("Contest can open only after election registration is closed");
             }
-            if (contestOptionRepository.countByContestId(contest.getId()) < 2) {
-                throw new ElectionLifecycleException("Contest must have at least two ballot options before opening");
+            if (contestOptionRepository.countByContestIdAndOptionTypeIn(contest.getId(), VALID_VOTE_OPTION_TYPES) < 2) {
+                throw new ElectionLifecycleException("Contest must have at least two valid vote options before opening");
             }
         }
 

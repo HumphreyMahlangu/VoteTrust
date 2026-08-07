@@ -1,6 +1,8 @@
 package io.github.humphreymahlangu.votetrust.repository;
 
 import io.github.humphreymahlangu.votetrust.entity.ContestOption;
+import io.github.humphreymahlangu.votetrust.entity.ContestOptionType;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -18,5 +20,8 @@ public interface ContestOptionRepository extends JpaRepository<ContestOption, UU
 
     boolean existsByContestIdAndDisplayOrder(UUID contestId, Integer displayOrder);
 
-    long countByContestId(UUID contestId);
+    boolean existsByContestIdAndOptionType(UUID contestId, ContestOptionType optionType);
+
+    long countByContestIdAndOptionTypeIn(UUID contestId, Collection<ContestOptionType> optionTypes);
+
 }

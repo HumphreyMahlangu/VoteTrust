@@ -7,6 +7,7 @@ import io.github.humphreymahlangu.votetrust.dto.ContestOptionTallyRow;
 import io.github.humphreymahlangu.votetrust.dto.ContestResultResponse;
 import io.github.humphreymahlangu.votetrust.entity.BallotLedgerEntry;
 import io.github.humphreymahlangu.votetrust.entity.Contest;
+import io.github.humphreymahlangu.votetrust.entity.ContestOptionType;
 import io.github.humphreymahlangu.votetrust.entity.ContestStatus;
 import io.github.humphreymahlangu.votetrust.entity.Election;
 import io.github.humphreymahlangu.votetrust.entity.ElectionStatus;
@@ -66,18 +67,23 @@ public class TallyAuditService {
 
         List<ContestOptionTallyRow> tallyRows = ballotLedgerEntryRepository.tallyContestOptions(contestId);
         long validVotes = tallyRows.stream()
+                .filter(tallyRow -> tallyRow.optionType().isValidVote())
                 .mapToLong(ContestOptionTallyRow::voteCount)
                 .sum();
+        long blankBallots = countVotesByOptionType(tallyRows, ContestOptionType.BLANK_BALLOT);
+        long spoiltBallots = countVotesByOptionType(tallyRows, ContestOptionType.SPOILT_BALLOT);
         long ballotsCast = ballotLedgerEntryRepository.countByContestId(contestId);
         long registeredVoterCount = electionRegistrationRepository.countByElectionIdAndStatus(
                 electionId,
                 RegistrationStatus.ACTIVE
         );
         long highestVoteCount = tallyRows.stream()
+                .filter(tallyRow -> tallyRow.optionType().isValidVote())
                 .mapToLong(ContestOptionTallyRow::voteCount)
                 .max()
                 .orElse(0);
         List<ContestOptionResultResponse> optionResults = tallyRows.stream()
+                .filter(tallyRow -> tallyRow.optionType().isValidVote())
                 .map(tallyRow -> toOptionResult(tallyRow, validVotes, highestVoteCount))
                 .toList();
 
@@ -92,7 +98,8 @@ public class TallyAuditService {
                 registeredVoterCount,
                 ballotsCast,
                 validVotes,
-                ballotsCast - validVotes,
+                blankBallots,
+                spoiltBallots,
                 percentage(ballotsCast, registeredVoterCount),
                 ledgerHeadHash,
                 Instant.now(clock),
@@ -173,6 +180,13 @@ public class TallyAuditService {
                         LocalDate.ofInstant(entry.getCastAt(), ZoneOffset.UTC)
                 ))
                 .toList();
+    }
+
+    private long countVotesByOptionType(List<ContestOptionTallyRow> tallyRows, ContestOptionType optionType) {
+        return tallyRows.stream()
+                .filter(tallyRow -> tallyRow.optionType() == optionType)
+                .mapToLong(ContestOptionTallyRow::voteCount)
+                .sum();
     }
 
     private Contest findClosedContest(UUID electionId, UUID contestId) {

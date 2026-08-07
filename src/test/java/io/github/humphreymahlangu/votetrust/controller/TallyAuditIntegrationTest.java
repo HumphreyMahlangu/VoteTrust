@@ -139,9 +139,11 @@ class TallyAuditIntegrationTest extends PostgreSqlTestContainerSupport {
                 .andExpect(jsonPath("$.registeredVoterCount").value(3))
                 .andExpect(jsonPath("$.ballotsCast").value(3))
                 .andExpect(jsonPath("$.validVotes").value(3))
+                .andExpect(jsonPath("$.blankBallots").value(0))
                 .andExpect(jsonPath("$.spoiltBallots").value(0))
                 .andExpect(jsonPath("$.turnoutPercentage").value(100.0))
                 .andExpect(jsonPath("$.ledgerHeadHash").value(lastEntry.getCurrentHash()))
+                .andExpect(jsonPath("$.options.length()").value(2))
                 .andExpect(jsonPath("$.options[0].contestOptionId").value(fixture.optionA().getId().toString()))
                 .andExpect(jsonPath("$.options[0].voteCount").value(2))
                 .andExpect(jsonPath("$.options[0].percentageOfValidVotes").value(66.67))
@@ -149,6 +151,36 @@ class TallyAuditIntegrationTest extends PostgreSqlTestContainerSupport {
                 .andExpect(jsonPath("$.options[1].contestOptionId").value(fixture.optionB().getId().toString()))
                 .andExpect(jsonPath("$.options[1].voteCount").value(1))
                 .andExpect(jsonPath("$.options[1].percentageOfValidVotes").value(33.33))
+                .andExpect(jsonPath("$.options[1].leading").value(false));
+    }
+
+    @Test
+    void finalResultsSeparateBlankAndSpoiltBallotsFromValidVotes() throws Exception {
+        ClosedContestFixture fixture = createClosedContestFixture();
+        appendVote(fixture.contest(), fixture.optionA(), 300);
+        appendVote(fixture.contest(), fixture.blankOption(), 240);
+        appendVote(fixture.contest(), fixture.spoiltOption(), 180);
+
+        mockMvc.perform(get(
+                        "/api/v1/elections/{electionId}/contests/{contestId}/results",
+                        fixture.election().getId(),
+                        fixture.contest().getId()
+                ))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.registeredVoterCount").value(3))
+                .andExpect(jsonPath("$.ballotsCast").value(3))
+                .andExpect(jsonPath("$.validVotes").value(1))
+                .andExpect(jsonPath("$.blankBallots").value(1))
+                .andExpect(jsonPath("$.spoiltBallots").value(1))
+                .andExpect(jsonPath("$.turnoutPercentage").value(100.0))
+                .andExpect(jsonPath("$.options.length()").value(2))
+                .andExpect(jsonPath("$.options[0].contestOptionId").value(fixture.optionA().getId().toString()))
+                .andExpect(jsonPath("$.options[0].voteCount").value(1))
+                .andExpect(jsonPath("$.options[0].percentageOfValidVotes").value(100.0))
+                .andExpect(jsonPath("$.options[0].leading").value(true))
+                .andExpect(jsonPath("$.options[1].contestOptionId").value(fixture.optionB().getId().toString()))
+                .andExpect(jsonPath("$.options[1].voteCount").value(0))
+                .andExpect(jsonPath("$.options[1].percentageOfValidVotes").value(0.0))
                 .andExpect(jsonPath("$.options[1].leading").value(false));
     }
 
@@ -287,12 +319,24 @@ class TallyAuditIntegrationTest extends PostgreSqlTestContainerSupport {
                 ContestOptionType.PARTY,
                 2
         ));
+        ContestOption blankOption = contestOptionRepository.save(new ContestOption(
+                contest,
+                "Blank ballot",
+                ContestOptionType.BLANK_BALLOT,
+                98
+        ));
+        ContestOption spoiltOption = contestOptionRepository.save(new ContestOption(
+                contest,
+                "Spoilt ballot",
+                ContestOptionType.SPOILT_BALLOT,
+                99
+        ));
 
         seedRegisteredVoter(election, district, "results.voter.one@example.com");
         seedRegisteredVoter(election, district, "results.voter.two@example.com");
         seedRegisteredVoter(election, district, "results.voter.three@example.com");
 
-        return new ClosedContestFixture(election, contest, optionA, optionB);
+        return new ClosedContestFixture(election, contest, optionA, optionB, blankOption, spoiltOption);
     }
 
     private void seedRegisteredVoter(Election election, VotingDistrict district, String email) {
@@ -329,7 +373,9 @@ class TallyAuditIntegrationTest extends PostgreSqlTestContainerSupport {
             Election election,
             Contest contest,
             ContestOption optionA,
-            ContestOption optionB
+            ContestOption optionB,
+            ContestOption blankOption,
+            ContestOption spoiltOption
     ) {
     }
 

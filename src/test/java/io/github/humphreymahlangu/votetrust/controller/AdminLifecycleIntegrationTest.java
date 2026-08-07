@@ -206,7 +206,7 @@ class AdminLifecycleIntegrationTest extends PostgreSqlTestContainerSupport {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(statusBody("OPEN")))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.message").value("Contest must have at least two ballot options before opening"));
+                .andExpect(jsonPath("$.message").value("Contest must have at least two valid vote options before opening"));
     }
 
     @Test

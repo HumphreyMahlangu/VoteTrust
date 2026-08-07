@@ -106,7 +106,7 @@ public class AdminElectionManagementController {
 
     @PostMapping("/elections/{electionId}/contests/{contestId}/options")
     @ResponseStatus(HttpStatus.CREATED)
-    @Operation(summary = "Create a ballot option for a contest", description = "Adds a candidate, party, or supported ballot option to an existing contest.")
+    @Operation(summary = "Create a ballot option for a contest", description = "Adds a party, independent candidate, explicit blank ballot, or explicit spoilt ballot option to an existing contest.")
     public ContestOptionResponse createContestOption(
             @PathVariable UUID electionId,
             @PathVariable UUID contestId,

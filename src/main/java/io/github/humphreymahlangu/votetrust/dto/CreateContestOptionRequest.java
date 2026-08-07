@@ -16,7 +16,10 @@ public record CreateContestOptionRequest(
         String name,
 
         @NotNull
-        @Schema(description = "Ballot option type", example = "PARTY")
+        @Schema(
+                description = "Ballot option type. PARTY and INDEPENDENT_CANDIDATE count as valid votes; BLANK_BALLOT and SPOILT_BALLOT are explicit non-valid ballot choices.",
+                example = "PARTY"
+        )
         ContestOptionType optionType,
 
         @NotNull
