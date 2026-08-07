@@ -44,3 +44,6 @@ target/
 # OS files
 .DS_Store
 Thumbs.db
+
+# Local deployment secrets
+.env

@@ -16,6 +16,7 @@
 * [Core Principles](#core-principles)
 * [Key Features](#key-features)
 * [Technology Stack](#technology-stack)
+* [Local Deployment](#local-deployment)
 * [Project Status](#project-status)
 * [Roadmap](#roadmap)
 * [Disclaimer](#disclaimer)
@@ -193,6 +194,51 @@ Results, audit summaries, and public ledger entries are exposed only after the e
 
 * Docker
 * GitHub Actions
+
+---
+
+# Local Deployment
+
+## Prerequisites
+
+* Java 21
+* Docker Desktop or a compatible Docker engine
+* Maven wrapper included in this repository
+
+## Run Tests
+
+```powershell
+.\mvnw.cmd test
+```
+
+## Run With Docker Compose
+
+Create a local environment file from the committed template, then replace every `change-me-*` value before starting the stack.
+
+```powershell
+Copy-Item .env.example .env
+docker compose up --build
+```
+
+The API will be available at:
+
+* `http://localhost:8080`
+* `http://localhost:8080/swagger-ui.html`
+* `http://localhost:8080/actuator/health`
+
+## Build Container Image Only
+
+```powershell
+docker build -t votetrust-api:local .
+```
+
+## Production Notes
+
+* Do not reuse `.env.example` values outside local development.
+* Set `VOTETRUST_JWT_SECRET`, `VOTETRUST_ID_HASH_PEPPER`, and `VOTETRUST_VOTE_CREDENTIAL_PEPPER` from a secret manager.
+* Keep PostgreSQL storage on a managed volume or managed database service.
+* Expose only `/actuator/health` publicly; other actuator endpoints require authentication.
+* Flyway migrations run automatically on startup, and Hibernate validates the schema instead of creating it.
 
 ---
 
