@@ -156,6 +156,13 @@ The following features are planned for the project:
 * Password Encryption
 * Role-Based Access Control
 
+## Runtime Configuration
+
+Set these secrets through environment variables. Do not commit real values.
+
+* `VOTETRUST_JWT_SECRET`: JWT signing secret with at least 32 characters.
+* `VOTETRUST_ID_HASH_PEPPER`: HMAC pepper for hashing South African ID numbers with at least 32 characters.
+
 ## Documentation
 
 * OpenAPI (Swagger)
