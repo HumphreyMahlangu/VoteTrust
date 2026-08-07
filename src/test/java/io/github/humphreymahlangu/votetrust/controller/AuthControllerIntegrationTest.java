@@ -96,4 +96,23 @@ class AuthControllerIntegrationTest {
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.message").value("A user account with this email already exists"));
     }
+
+    @Test
+    void weakRegistrationPasswordReturnsValidationError() throws Exception {
+        String registerBody = """
+                {
+                  "email": "weak.password@example.com",
+                  "password": "lowercaseonly"
+                }
+                """;
+
+        mockMvc.perform(post("/api/v1/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(registerBody))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Request validation failed"))
+                .andExpect(jsonPath("$.fieldErrors.password").value(
+                        "must contain at least one uppercase letter, one lowercase letter, and one digit"
+                ));
+    }
 }

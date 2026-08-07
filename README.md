@@ -117,23 +117,23 @@ Explore how digital platforms may reduce practical barriers that discourage part
 
 # Key Features
 
-The following features are planned for the project:
+The current implementation demonstrates:
 
-* Secure user registration and authentication
-* Role-based access control
-* Election management
-* Candidate management
-* Voter registration
+* Secure user registration and JWT authentication
+* Role-based account model
+* Election and voting district read APIs
+* Voter registration with South African ID validation and registration-window enforcement
+* Anonymous one-time voting credentials
 * Digital ballot submission
-* One vote per voter enforcement
-* Encrypted vote storage
-* Audit logging
-* Distributed ledger integration for election auditing
-* RESTful API
+* One vote per voter per contest enforcement
+* Ballot ledger entries that do not store voter identity
+* Tamper-evident SHA-256 hash chain for ballot ledger auditing
+* Final result tallying after voting closes
+* Public audit and ledger verification endpoints
 * OpenAPI / Swagger documentation
-* Docker support
-* Automated testing
-* CI/CD pipeline
+* Docker Compose deployment with PostgreSQL
+* GitHub Actions CI workflow
+* Automated unit and integration tests
 
 ---
 
@@ -164,6 +164,7 @@ Set these secrets through environment variables. Do not commit real values.
 * `VOTETRUST_JWT_SECRET`: JWT signing secret with at least 32 characters.
 * `VOTETRUST_ID_HASH_PEPPER`: HMAC pepper for hashing South African ID numbers with at least 32 characters.
 * `VOTETRUST_VOTE_CREDENTIAL_PEPPER`: HMAC pepper for hashing anonymous voting credentials with at least 32 characters.
+* `VOTETRUST_CORS_ALLOWED_ORIGINS`: Comma-separated browser origins allowed to call the API.
 
 ## API Surface
 
@@ -236,6 +237,7 @@ docker build -t votetrust-api:local .
 
 * Do not reuse `.env.example` values outside local development.
 * Set `VOTETRUST_JWT_SECRET`, `VOTETRUST_ID_HASH_PEPPER`, and `VOTETRUST_VOTE_CREDENTIAL_PEPPER` from a secret manager.
+* Set `VOTETRUST_CORS_ALLOWED_ORIGINS` to the exact frontend domains that should call the API.
 * Keep PostgreSQL storage on a managed volume or managed database service.
 * Expose only `/actuator/health` publicly; other actuator endpoints require authentication.
 * Flyway migrations run automatically on startup, and Hibernate validates the schema instead of creating it.
@@ -244,11 +246,25 @@ docker build -t votetrust-api:local .
 
 # Project Status
 
-🚧 **Currently Under Active Development**
+🚧 **Portfolio MVP Implemented**
 
-The project is currently in the planning and architecture phase.
+The core backend workflow is implemented: authentication, voter registration, anonymous voting, hash-chain auditability, final tallying, OpenAPI documentation, automated tests, and local container deployment support.
 
-The initial focus is on designing a secure, maintainable, and scalable backend before implementation begins.
+The project remains an educational portfolio simulation and should not be presented as a certified online election platform.
+
+---
+
+# Roadmap
+
+Potential next steps:
+
+* Admin-only election, contest, and voting district management endpoints.
+* Refresh-token flow and token revocation.
+* Database-backed audit events for administrative actions.
+* PostgreSQL Testcontainers integration in CI.
+* API versioned seed data for demo elections.
+* Cloud deployment pipeline and production observability.
+* Independent cryptographic review of the anonymous credential and ledger design.
 
 ---
 

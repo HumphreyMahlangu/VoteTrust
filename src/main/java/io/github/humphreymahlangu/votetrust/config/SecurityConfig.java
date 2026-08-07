@@ -1,15 +1,18 @@
 package io.github.humphreymahlangu.votetrust.config;
 
-import io.github.humphreymahlangu.votetrust.security.JwtAuthenticationFilter;
+import io.github.humphreymahlangu.votetrust.security.CorsProperties;
 import io.github.humphreymahlangu.votetrust.security.IdentityHashProperties;
+import io.github.humphreymahlangu.votetrust.security.JwtAuthenticationFilter;
 import io.github.humphreymahlangu.votetrust.security.JwtProperties;
 import io.github.humphreymahlangu.votetrust.security.RestAccessDeniedHandler;
 import io.github.humphreymahlangu.votetrust.security.RestAuthenticationEntryPoint;
 import io.github.humphreymahlangu.votetrust.security.VoteCredentialProperties;
+import java.util.List;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -20,10 +23,18 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 @Configuration
 @EnableMethodSecurity
-@EnableConfigurationProperties({JwtProperties.class, IdentityHashProperties.class, VoteCredentialProperties.class})
+@EnableConfigurationProperties({
+        JwtProperties.class,
+        IdentityHashProperties.class,
+        VoteCredentialProperties.class,
+        CorsProperties.class
+})
 public class SecurityConfig {
 
     @Bean
@@ -65,6 +76,25 @@ public class SecurityConfig {
     @Bean
     PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder(12);
+    }
+
+    @Bean
+    CorsConfigurationSource corsConfigurationSource(CorsProperties corsProperties) {
+        CorsConfiguration configuration = new CorsConfiguration();
+        configuration.setAllowedOrigins(corsProperties.allowedOriginList());
+        configuration.setAllowedMethods(List.of("GET", "POST", "OPTIONS"));
+        configuration.setAllowedHeaders(List.of(
+                HttpHeaders.AUTHORIZATION,
+                HttpHeaders.CONTENT_TYPE,
+                HttpHeaders.ACCEPT,
+                "X-Requested-With"
+        ));
+        configuration.setAllowCredentials(false);
+        configuration.setMaxAge(3600L);
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", configuration);
+        return source;
     }
 
     @Bean
