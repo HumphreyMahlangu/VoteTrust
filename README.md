@@ -141,14 +141,14 @@ The following features are planned for the project:
 ## Backend
 
 * Java 21
-* Spring Boot
+* Spring Boot 3
 * Spring Security
 * Spring Data JPA
 * Maven
 
 ## Database
 
-* MySQL
+* PostgreSQL
 
 ## Security
 
