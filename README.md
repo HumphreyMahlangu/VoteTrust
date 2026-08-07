@@ -16,6 +16,7 @@
 * [Core Principles](#core-principles)
 * [Key Features](#key-features)
 * [Technology Stack](#technology-stack)
+* [Local Deployment](#local-deployment)
 * [Project Status](#project-status)
 * [Roadmap](#roadmap)
 * [Disclaimer](#disclaimer)
@@ -116,23 +117,25 @@ Explore how digital platforms may reduce practical barriers that discourage part
 
 # Key Features
 
-The following features are planned for the project:
+The current implementation demonstrates:
 
-* Secure user registration and authentication
-* Role-based access control
-* Election management
-* Candidate management
-* Voter registration
+* Secure user registration and JWT authentication
+* Role-based account model
+* Disabled-by-default admin bootstrap flow for first-admin creation
+* Admin-only election, contest, option, and voting district management APIs
+* Election and voting district read APIs
+* Voter registration with South African ID validation and registration-window enforcement
+* Anonymous one-time voting credentials
 * Digital ballot submission
-* One vote per voter enforcement
-* Encrypted vote storage
-* Audit logging
-* Distributed ledger integration for election auditing
-* RESTful API
+* One vote per voter per contest enforcement
+* Ballot ledger entries that do not store voter identity
+* Tamper-evident SHA-256 hash chain for ballot ledger auditing
+* Final result tallying after voting closes
+* Public audit and ledger verification endpoints
 * OpenAPI / Swagger documentation
-* Docker support
-* Automated testing
-* CI/CD pipeline
+* Docker Compose deployment with PostgreSQL
+* GitHub Actions CI workflow
+* Automated unit and integration tests
 
 ---
 
@@ -156,6 +159,47 @@ The following features are planned for the project:
 * Password Encryption
 * Role-Based Access Control
 
+## Runtime Configuration
+
+Set these secrets through environment variables. Do not commit real values.
+
+* `VOTETRUST_JWT_SECRET`: JWT signing secret with at least 32 characters.
+* `VOTETRUST_ID_HASH_PEPPER`: HMAC pepper for hashing South African ID numbers with at least 32 characters.
+* `VOTETRUST_VOTE_CREDENTIAL_PEPPER`: HMAC pepper for hashing anonymous voting credentials with at least 32 characters.
+* `VOTETRUST_CORS_ALLOWED_ORIGINS`: Comma-separated browser origins allowed to call the API.
+* `VOTETRUST_ADMIN_BOOTSTRAP_ENABLED`: Enables the first-admin bootstrap endpoint when set to `true`.
+* `VOTETRUST_ADMIN_BOOTSTRAP_TOKEN`: One-time bootstrap token with at least 32 characters.
+
+## API Surface
+
+Current implemented endpoints include:
+
+* `POST /api/v1/auth/register` and `POST /api/v1/auth/login`
+* `POST /api/v1/admin/bootstrap`
+* `POST /api/v1/admin/voting-districts`
+* `POST /api/v1/admin/elections`
+* `PATCH /api/v1/admin/elections/{electionId}/status`
+* `POST /api/v1/admin/elections/{electionId}/contests`
+* `POST /api/v1/admin/elections/{electionId}/contests/{contestId}/options`
+* `PATCH /api/v1/admin/elections/{electionId}/contests/{contestId}/status`
+* `GET /api/v1/elections` and `GET /api/v1/elections/{electionId}`
+* `POST /api/v1/elections/{electionId}/registrations`
+* `GET /api/v1/elections/{electionId}/contests`
+* `POST /api/v1/elections/{electionId}/contests/{contestId}/credentials`
+* `POST /api/v1/ballots`
+* `GET /api/v1/elections/{electionId}/contests/{contestId}/results`
+* `GET /api/v1/elections/{electionId}/contests/{contestId}/audit`
+* `GET /api/v1/elections/{electionId}/contests/{contestId}/ledger`
+
+Results, audit summaries, and public ledger entries are exposed only after the election status is `COMPLETED`, the contest status is `CLOSED`, and the voting window has ended.
+
+Admin-managed elections and contests are created in `DRAFT` status. Status updates must follow the supported lifecycle:
+
+* Election: `DRAFT` -> `REGISTRATION_OPEN` -> `REGISTRATION_CLOSED` -> `VOTING_OPEN` -> `COMPLETED`
+* Contest: `DRAFT` -> `OPEN` -> `CLOSED`
+
+The bootstrap endpoint is intended only for first-admin creation. It requires `X-VoteTrust-Bootstrap-Token`, only works when bootstrap is enabled, and refuses to create another admin after an admin account already exists.
+
 ## Documentation
 
 * OpenAPI (Swagger)
@@ -172,13 +216,74 @@ The following features are planned for the project:
 
 ---
 
+# Local Deployment
+
+## Prerequisites
+
+* Java 21
+* Docker Desktop or a compatible Docker engine
+* Maven wrapper included in this repository
+
+## Run Tests
+
+```powershell
+.\mvnw.cmd test
+```
+
+## Run With Docker Compose
+
+Create a local environment file from the committed template, then replace every `change-me-*` value before starting the stack.
+
+```powershell
+Copy-Item .env.example .env
+docker compose up --build
+```
+
+The API will be available at:
+
+* `http://localhost:8080`
+* `http://localhost:8080/swagger-ui.html`
+* `http://localhost:8080/actuator/health`
+
+## Build Container Image Only
+
+```powershell
+docker build -t votetrust-api:local .
+```
+
+## Production Notes
+
+* Do not reuse `.env.example` values outside local development.
+* Set `VOTETRUST_JWT_SECRET`, `VOTETRUST_ID_HASH_PEPPER`, and `VOTETRUST_VOTE_CREDENTIAL_PEPPER` from a secret manager.
+* Keep `VOTETRUST_ADMIN_BOOTSTRAP_ENABLED=false` except during a controlled first-admin bootstrap window.
+* Rotate and remove any exposed `VOTETRUST_ADMIN_BOOTSTRAP_TOKEN` value after first-admin creation.
+* Set `VOTETRUST_CORS_ALLOWED_ORIGINS` to the exact frontend domains that should call the API.
+* Keep PostgreSQL storage on a managed volume or managed database service.
+* Expose only `/actuator/health` publicly; other actuator endpoints require authentication.
+* Flyway migrations run automatically on startup, and Hibernate validates the schema instead of creating it.
+
+---
+
 # Project Status
 
-🚧 **Currently Under Active Development**
+🚧 **Portfolio MVP Implemented**
 
-The project is currently in the planning and architecture phase.
+The core backend workflow is implemented: authentication, voter registration, anonymous voting, hash-chain auditability, final tallying, OpenAPI documentation, automated tests, and local container deployment support.
 
-The initial focus is on designing a secure, maintainable, and scalable backend before implementation begins.
+The project remains an educational portfolio simulation and should not be presented as a certified online election platform.
+
+---
+
+# Roadmap
+
+Potential next steps:
+
+* Refresh-token flow and token revocation.
+* Database-backed audit events for administrative actions.
+* PostgreSQL Testcontainers integration in CI.
+* API versioned seed data for demo elections.
+* Cloud deployment pipeline and production observability.
+* Independent cryptographic review of the anonymous credential and ledger design.
 
 ---
 
