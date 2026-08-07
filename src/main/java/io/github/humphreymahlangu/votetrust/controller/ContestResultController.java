@@ -42,7 +42,7 @@ public class ContestResultController {
     }
 
     @GetMapping("/results")
-    @Operation(summary = "Get final contest results", description = "Returns final tallies only after the election is completed and the contest is closed.")
+    @Operation(summary = "Get final contest results", description = "Returns final tallies only after the election is completed and the contest is closed. Explicit blank and spoilt ballots are excluded from valid vote totals.")
     public ContestResultResponse getContestResults(
             @PathVariable UUID electionId,
             @PathVariable UUID contestId

@@ -13,7 +13,7 @@ public record ContestOptionResultResponse(
         @Schema(description = "Option display name", example = "Example Party")
         String name,
 
-        @Schema(description = "Option type", example = "PARTY")
+        @Schema(description = "Valid vote option type", example = "PARTY")
         ContestOptionType optionType,
 
         @Schema(description = "Display ordering on the ballot", example = "1")

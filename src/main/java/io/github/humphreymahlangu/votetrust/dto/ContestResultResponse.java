@@ -24,13 +24,16 @@ public record ContestResultResponse(
         @Schema(description = "Number of registered voters eligible for this contest", example = "1000")
         long registeredVoterCount,
 
-        @Schema(description = "Number of accepted ballots cast", example = "645")
+        @Schema(description = "Number of accepted ballots cast, including valid, blank, and spoilt ballots", example = "645")
         long ballotsCast,
 
-        @Schema(description = "Number of valid votes counted toward options", example = "645")
+        @Schema(description = "Number of valid votes counted toward party or independent candidate options", example = "645")
         long validVotes,
 
-        @Schema(description = "Number of spoilt ballots", example = "0")
+        @Schema(description = "Number of explicit blank ballots", example = "0")
+        long blankBallots,
+
+        @Schema(description = "Number of explicit spoilt ballots", example = "0")
         long spoiltBallots,
 
         @Schema(description = "Turnout as a percentage of registered voters", example = "64.50")
@@ -42,7 +45,7 @@ public record ContestResultResponse(
         @Schema(description = "UTC timestamp when results were generated", example = "2026-08-07T20:15:30Z")
         Instant generatedAt,
 
-        @Schema(description = "Per-option tally rows")
+        @Schema(description = "Per-option tally rows for valid vote options only")
         List<ContestOptionResultResponse> options
 ) {
 }

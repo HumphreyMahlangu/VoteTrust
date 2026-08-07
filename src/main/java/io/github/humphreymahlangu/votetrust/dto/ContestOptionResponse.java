@@ -11,7 +11,7 @@ public record ContestOptionResponse(
         @Schema(description = "Party, candidate, or ballot option name", example = "Example Party")
         String name,
 
-        @Schema(description = "Ballot option type", example = "PARTY")
+        @Schema(description = "Ballot option type. BLANK_BALLOT and SPOILT_BALLOT are counted separately from valid votes.", example = "PARTY")
         String optionType,
 
         @Schema(description = "Display ordering on the ballot", example = "1")

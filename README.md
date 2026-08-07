@@ -129,6 +129,7 @@ The current implementation demonstrates:
 * Anonymous one-time voting credentials
 * Digital ballot submission
 * One vote per voter per contest enforcement
+* Explicit blank and spoilt ballot option support
 * Ballot ledger entries that do not store voter identity
 * Receipt-resistant ballot responses that do not return ledger hashes, indexes, or ballot entry identifiers
 * Reduced timing-correlation metadata for credential and public ledger records
@@ -206,6 +207,8 @@ Current implemented endpoints include:
 Results, audit summaries, and public ledger entries are exposed only after the election status is `COMPLETED`, the contest status is `CLOSED`, and the voting window has ended. Public ledger entries expose a coarse `recordedDate` instead of exact cast timestamps to reduce timing-correlation risk.
 
 Security audit events are admin-only and intentionally limited to account authentication, admin bootstrap, and rate-limit blocks. Anonymous voting credentials and ballot submissions are not linked to voter identity in the security audit log.
+
+Blank and spoilt ballots are represented as explicit contest options with `optionType` values of `BLANK_BALLOT` and `SPOILT_BALLOT`. Accepted blank/spoilt ballots consume a one-time credential and are included in the tamper-evident ledger and `ballotsCast`, but they are excluded from `validVotes`, per-option winner calculations, and valid option percentages. Malformed API requests are rejected instead of being counted as spoilt ballots.
 
 Admin-managed elections and contests are created in `DRAFT` status. Status updates must follow the supported lifecycle:
 

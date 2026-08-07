@@ -277,6 +277,29 @@ class VotingIntegrationTest extends PostgreSqlTestContainerSupport {
     }
 
     @Test
+    void anonymousBallotCanCastExplicitBlankBallotOption() throws Exception {
+        VotingFixture fixture = createVotingFixture("voter.blank.ballot@example.com", LocalDate.of(1980, 1, 1));
+        ContestOption blankOption = contestOptionRepository.save(new ContestOption(
+                fixture.contest(),
+                "Blank ballot",
+                ContestOptionType.BLANK_BALLOT,
+                98
+        ));
+        String credential = issueCredential(fixture);
+
+        mockMvc.perform(post("/api/v1/ballots")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(ballotBody(fixture.contest(), blankOption, credential)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.accepted").value(true));
+
+        List<BallotLedgerEntry> entries = ballotLedgerEntryRepository
+                .findByContestIdOrderByLedgerIndexAsc(fixture.contest().getId());
+        assertThat(entries).hasSize(1);
+        assertThat(entries.getFirst().getContestOption().getOptionType()).isEqualTo(ContestOptionType.BLANK_BALLOT);
+    }
+
+    @Test
     void contestsCanBeListedPubliclyWithOptions() throws Exception {
         VotingFixture fixture = createVotingFixture("voter.contests@example.com", LocalDate.of(1980, 1, 1));
 
