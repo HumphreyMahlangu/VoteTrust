@@ -7,6 +7,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.jayway.jsonpath.JsonPath;
+import io.github.humphreymahlangu.votetrust.support.PostgreSqlTestContainerSupport;
 import io.github.humphreymahlangu.votetrust.repository.AnonymousVotingCredentialRepository;
 import io.github.humphreymahlangu.votetrust.repository.BallotLedgerEntryRepository;
 import io.github.humphreymahlangu.votetrust.repository.ContestOptionRepository;
@@ -28,6 +29,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import org.testcontainers.junit.jupiter.Testcontainers;
 
 @SpringBootTest(properties = {
         "votetrust.admin.bootstrap.enabled=true",
@@ -35,7 +37,8 @@ import org.springframework.test.web.servlet.MvcResult;
 })
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
-class AdminLifecycleIntegrationTest {
+@Testcontainers(disabledWithoutDocker = true)
+class AdminLifecycleIntegrationTest extends PostgreSqlTestContainerSupport {
 
     private static final String BOOTSTRAP_TOKEN = "test-admin-bootstrap-token-at-least-32-characters";
 

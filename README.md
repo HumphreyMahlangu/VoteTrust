@@ -218,6 +218,7 @@ A voter receives a credential only when their registered voting district matches
 
 * JUnit 5
 * Mockito
+* PostgreSQL Testcontainers for Spring integration tests
 
 ## DevOps
 
@@ -239,6 +240,8 @@ A voter receives a credential only when their registered voting district matches
 ```powershell
 .\mvnw.cmd test
 ```
+
+Spring integration tests run against PostgreSQL Testcontainers with Flyway enabled, so Docker Desktop or another Docker-compatible engine must be available for full local validation. When Docker is unavailable, container-backed integration tests are skipped by Testcontainers; CI runs them on a Docker-capable runner.
 
 ## Run With Docker Compose
 
@@ -290,7 +293,6 @@ Potential next steps:
 
 * Refresh-token flow and token revocation.
 * Database-backed audit events for administrative actions.
-* PostgreSQL Testcontainers integration in CI.
 * API versioned seed data for demo elections.
 * Cloud deployment pipeline and production observability.
 * Independent cryptographic review of the anonymous credential and ledger design.
