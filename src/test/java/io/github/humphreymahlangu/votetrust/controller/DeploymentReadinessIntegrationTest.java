@@ -2,6 +2,7 @@ package io.github.humphreymahlangu.votetrust.controller;
 
 import static org.hamcrest.Matchers.startsWith;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -11,11 +12,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
-@SpringBootTest
+@SpringBootTest(properties = "votetrust.security.cors.allowed-origins=https://portfolio.example")
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 class DeploymentReadinessIntegrationTest {
@@ -36,5 +38,22 @@ class DeploymentReadinessIntegrationTest {
                 .andExpect(status().isUnauthorized())
                 .andExpect(header().string(HttpHeaders.CONTENT_TYPE, startsWith(MediaType.APPLICATION_JSON_VALUE)))
                 .andExpect(jsonPath("$.message").value("Authentication is required"));
+    }
+
+    @Test
+    void configuredCorsOriginIsAllowedForBrowserClients() throws Exception {
+        mockMvc.perform(options("/api/v1/elections")
+                        .header(HttpHeaders.ORIGIN, "https://portfolio.example")
+                        .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, HttpMethod.GET.name()))
+                .andExpect(status().isOk())
+                .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "https://portfolio.example"));
+    }
+
+    @Test
+    void unconfiguredCorsOriginIsRejected() throws Exception {
+        mockMvc.perform(options("/api/v1/elections")
+                        .header(HttpHeaders.ORIGIN, "https://malicious.example")
+                        .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, HttpMethod.GET.name()))
+                .andExpect(status().isForbidden());
     }
 }
