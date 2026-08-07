@@ -88,6 +88,10 @@ public class Contest {
         return status;
     }
 
+    public void transitionTo(ContestStatus status) {
+        this.status = status;
+    }
+
     public Integer getDisplayOrder() {
         return displayOrder;
     }

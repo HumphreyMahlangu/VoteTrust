@@ -121,6 +121,8 @@ The current implementation demonstrates:
 
 * Secure user registration and JWT authentication
 * Role-based account model
+* Disabled-by-default admin bootstrap flow for first-admin creation
+* Admin-only election, contest, option, and voting district management APIs
 * Election and voting district read APIs
 * Voter registration with South African ID validation and registration-window enforcement
 * Anonymous one-time voting credentials
@@ -165,12 +167,21 @@ Set these secrets through environment variables. Do not commit real values.
 * `VOTETRUST_ID_HASH_PEPPER`: HMAC pepper for hashing South African ID numbers with at least 32 characters.
 * `VOTETRUST_VOTE_CREDENTIAL_PEPPER`: HMAC pepper for hashing anonymous voting credentials with at least 32 characters.
 * `VOTETRUST_CORS_ALLOWED_ORIGINS`: Comma-separated browser origins allowed to call the API.
+* `VOTETRUST_ADMIN_BOOTSTRAP_ENABLED`: Enables the first-admin bootstrap endpoint when set to `true`.
+* `VOTETRUST_ADMIN_BOOTSTRAP_TOKEN`: One-time bootstrap token with at least 32 characters.
 
 ## API Surface
 
 Current implemented endpoints include:
 
 * `POST /api/v1/auth/register` and `POST /api/v1/auth/login`
+* `POST /api/v1/admin/bootstrap`
+* `POST /api/v1/admin/voting-districts`
+* `POST /api/v1/admin/elections`
+* `PATCH /api/v1/admin/elections/{electionId}/status`
+* `POST /api/v1/admin/elections/{electionId}/contests`
+* `POST /api/v1/admin/elections/{electionId}/contests/{contestId}/options`
+* `PATCH /api/v1/admin/elections/{electionId}/contests/{contestId}/status`
 * `GET /api/v1/elections` and `GET /api/v1/elections/{electionId}`
 * `POST /api/v1/elections/{electionId}/registrations`
 * `GET /api/v1/elections/{electionId}/contests`
@@ -181,6 +192,13 @@ Current implemented endpoints include:
 * `GET /api/v1/elections/{electionId}/contests/{contestId}/ledger`
 
 Results, audit summaries, and public ledger entries are exposed only after the election status is `COMPLETED`, the contest status is `CLOSED`, and the voting window has ended.
+
+Admin-managed elections and contests are created in `DRAFT` status. Status updates must follow the supported lifecycle:
+
+* Election: `DRAFT` -> `REGISTRATION_OPEN` -> `REGISTRATION_CLOSED` -> `VOTING_OPEN` -> `COMPLETED`
+* Contest: `DRAFT` -> `OPEN` -> `CLOSED`
+
+The bootstrap endpoint is intended only for first-admin creation. It requires `X-VoteTrust-Bootstrap-Token`, only works when bootstrap is enabled, and refuses to create another admin after an admin account already exists.
 
 ## Documentation
 
@@ -237,6 +255,8 @@ docker build -t votetrust-api:local .
 
 * Do not reuse `.env.example` values outside local development.
 * Set `VOTETRUST_JWT_SECRET`, `VOTETRUST_ID_HASH_PEPPER`, and `VOTETRUST_VOTE_CREDENTIAL_PEPPER` from a secret manager.
+* Keep `VOTETRUST_ADMIN_BOOTSTRAP_ENABLED=false` except during a controlled first-admin bootstrap window.
+* Rotate and remove any exposed `VOTETRUST_ADMIN_BOOTSTRAP_TOKEN` value after first-admin creation.
 * Set `VOTETRUST_CORS_ALLOWED_ORIGINS` to the exact frontend domains that should call the API.
 * Keep PostgreSQL storage on a managed volume or managed database service.
 * Expose only `/actuator/health` publicly; other actuator endpoints require authentication.
@@ -258,7 +278,6 @@ The project remains an educational portfolio simulation and should not be presen
 
 Potential next steps:
 
-* Admin-only election, contest, and voting district management endpoints.
 * Refresh-token flow and token revocation.
 * Database-backed audit events for administrative actions.
 * PostgreSQL Testcontainers integration in CI.

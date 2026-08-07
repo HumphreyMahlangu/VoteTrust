@@ -1,5 +1,6 @@
 package io.github.humphreymahlangu.votetrust.config;
 
+import io.github.humphreymahlangu.votetrust.security.AdminBootstrapProperties;
 import io.github.humphreymahlangu.votetrust.security.CorsProperties;
 import io.github.humphreymahlangu.votetrust.security.IdentityHashProperties;
 import io.github.humphreymahlangu.votetrust.security.JwtAuthenticationFilter;
@@ -33,7 +34,8 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
         JwtProperties.class,
         IdentityHashProperties.class,
         VoteCredentialProperties.class,
-        CorsProperties.class
+        CorsProperties.class,
+        AdminBootstrapProperties.class
 })
 public class SecurityConfig {
 
@@ -60,9 +62,11 @@ public class SecurityConfig {
                                 "/actuator/health/**",
                                 "/api-docs/**",
                                 "/v3/api-docs/**",
-                                "/swagger-ui.html",
-                                "/swagger-ui/**"
+                        "/swagger-ui.html",
+                        "/swagger-ui/**"
                         ).permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/admin/bootstrap").permitAll()
+                        .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                         .requestMatchers(
                                 HttpMethod.GET,
                                 "/api/v1/elections/**",
@@ -82,7 +86,7 @@ public class SecurityConfig {
     CorsConfigurationSource corsConfigurationSource(CorsProperties corsProperties) {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOrigins(corsProperties.allowedOriginList());
-        configuration.setAllowedMethods(List.of("GET", "POST", "OPTIONS"));
+        configuration.setAllowedMethods(List.of("GET", "POST", "PATCH", "OPTIONS"));
         configuration.setAllowedHeaders(List.of(
                 HttpHeaders.AUTHORIZATION,
                 HttpHeaders.CONTENT_TYPE,

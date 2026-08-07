@@ -8,4 +8,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface ElectionRepository extends JpaRepository<Election, UUID> {
 
     List<Election> findAllByOrderByRegistrationStartAtDesc();
+
+    boolean existsByNameIgnoreCase(String name);
 }

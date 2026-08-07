@@ -88,6 +88,30 @@ public class GlobalExceptionHandler {
         return error(HttpStatus.CONFLICT, exception.getMessage(), request.getRequestURI());
     }
 
+    @ExceptionHandler(ElectionLifecycleException.class)
+    ResponseEntity<ApiErrorResponse> handleElectionLifecycle(
+            ElectionLifecycleException exception,
+            HttpServletRequest request
+    ) {
+        return error(HttpStatus.CONFLICT, exception.getMessage(), request.getRequestURI());
+    }
+
+    @ExceptionHandler(AdminBootstrapException.class)
+    ResponseEntity<ApiErrorResponse> handleAdminBootstrap(
+            AdminBootstrapException exception,
+            HttpServletRequest request
+    ) {
+        return error(HttpStatus.FORBIDDEN, exception.getMessage(), request.getRequestURI());
+    }
+
+    @ExceptionHandler(InvalidBootstrapTokenException.class)
+    ResponseEntity<ApiErrorResponse> handleInvalidBootstrapToken(
+            InvalidBootstrapTokenException exception,
+            HttpServletRequest request
+    ) {
+        return error(HttpStatus.UNAUTHORIZED, exception.getMessage(), request.getRequestURI());
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     ResponseEntity<ApiErrorResponse> handleValidation(
             MethodArgumentNotValidException exception,

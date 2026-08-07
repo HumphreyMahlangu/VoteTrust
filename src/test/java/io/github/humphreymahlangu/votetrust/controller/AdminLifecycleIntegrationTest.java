@@ -1,0 +1,358 @@
+package io.github.humphreymahlangu.votetrust.controller;
+
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import com.jayway.jsonpath.JsonPath;
+import io.github.humphreymahlangu.votetrust.repository.AnonymousVotingCredentialRepository;
+import io.github.humphreymahlangu.votetrust.repository.BallotLedgerEntryRepository;
+import io.github.humphreymahlangu.votetrust.repository.ContestOptionRepository;
+import io.github.humphreymahlangu.votetrust.repository.ContestRepository;
+import io.github.humphreymahlangu.votetrust.repository.ElectionRegistrationRepository;
+import io.github.humphreymahlangu.votetrust.repository.ElectionRepository;
+import io.github.humphreymahlangu.votetrust.repository.LedgerStateRepository;
+import io.github.humphreymahlangu.votetrust.repository.UserAccountRepository;
+import io.github.humphreymahlangu.votetrust.repository.VoterProfileRepository;
+import io.github.humphreymahlangu.votetrust.repository.VotingDistrictRepository;
+import io.github.humphreymahlangu.votetrust.repository.VotingRightRepository;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
+
+@SpringBootTest(properties = {
+        "votetrust.admin.bootstrap.enabled=true",
+        "votetrust.admin.bootstrap.token=test-admin-bootstrap-token-at-least-32-characters"
+})
+@AutoConfigureMockMvc
+@ActiveProfiles("test")
+class AdminLifecycleIntegrationTest {
+
+    private static final String BOOTSTRAP_TOKEN = "test-admin-bootstrap-token-at-least-32-characters";
+
+    @Autowired
+    private MockMvc mockMvc;
+
+    @Autowired
+    private BallotLedgerEntryRepository ballotLedgerEntryRepository;
+
+    @Autowired
+    private LedgerStateRepository ledgerStateRepository;
+
+    @Autowired
+    private AnonymousVotingCredentialRepository anonymousVotingCredentialRepository;
+
+    @Autowired
+    private VotingRightRepository votingRightRepository;
+
+    @Autowired
+    private ContestOptionRepository contestOptionRepository;
+
+    @Autowired
+    private ContestRepository contestRepository;
+
+    @Autowired
+    private ElectionRepository electionRepository;
+
+    @Autowired
+    private VotingDistrictRepository votingDistrictRepository;
+
+    @Autowired
+    private ElectionRegistrationRepository electionRegistrationRepository;
+
+    @Autowired
+    private VoterProfileRepository voterProfileRepository;
+
+    @Autowired
+    private UserAccountRepository userAccountRepository;
+
+    @BeforeEach
+    void cleanDatabase() {
+        ballotLedgerEntryRepository.deleteAll();
+        ledgerStateRepository.deleteAll();
+        anonymousVotingCredentialRepository.deleteAll();
+        votingRightRepository.deleteAll();
+        contestOptionRepository.deleteAll();
+        contestRepository.deleteAll();
+        electionRegistrationRepository.deleteAll();
+        voterProfileRepository.deleteAll();
+        electionRepository.deleteAll();
+        votingDistrictRepository.deleteAll();
+        userAccountRepository.deleteAll();
+    }
+
+    @Test
+    void bootstrapFirstAdminRequiresTokenAndRunsOnlyOnce() throws Exception {
+        mockMvc.perform(post("/api/v1/admin/bootstrap")
+                        .header(AdminBootstrapController.BOOTSTRAP_TOKEN_HEADER, "wrong-token")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(adminBootstrapBody("admin.invalid@example.com")))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.message").value("Invalid admin bootstrap token"));
+
+        mockMvc.perform(post("/api/v1/admin/bootstrap")
+                        .header(AdminBootstrapController.BOOTSTRAP_TOKEN_HEADER, BOOTSTRAP_TOKEN)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(adminBootstrapBody("admin@example.com")))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.tokenType").value("Bearer"))
+                .andExpect(jsonPath("$.email").value("admin@example.com"))
+                .andExpect(jsonPath("$.role").value("ADMIN"));
+
+        mockMvc.perform(post("/api/v1/admin/bootstrap")
+                        .header(AdminBootstrapController.BOOTSTRAP_TOKEN_HEADER, BOOTSTRAP_TOKEN)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(adminBootstrapBody("second.admin@example.com")))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value("An admin account already exists"));
+    }
+
+    @Test
+    void voterCannotUseAdminLifecycleEndpoints() throws Exception {
+        String voterToken = registerVoterAndReturnToken("voter.admin.denied@example.com");
+
+        mockMvc.perform(post("/api/v1/admin/voting-districts")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + voterToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(votingDistrictBody()))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value("Access denied"));
+    }
+
+    @Test
+    void adminCanCreateAndTransitionElectionLifecycle() throws Exception {
+        String adminToken = bootstrapAdminAndReturnToken("admin.lifecycle@example.com");
+
+        mockMvc.perform(post("/api/v1/admin/voting-districts")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(votingDistrictBody()))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.code").value("WC001-0001"))
+                .andExpect(jsonPath("$.name").value("Cape Town Ward 1 Station"));
+
+        MvcResult electionResult = mockMvc.perform(post("/api/v1/admin/elections")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(electionBody()))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.name").value("2024 Local Government Simulation"))
+                .andExpect(jsonPath("$.type").value("MUNICIPAL"))
+                .andExpect(jsonPath("$.status").value("DRAFT"))
+                .andReturn();
+        String electionId = JsonPath.read(electionResult.getResponse().getContentAsString(), "$.id");
+
+        MvcResult contestResult = mockMvc.perform(post("/api/v1/admin/elections/{electionId}/contests", electionId)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(contestBody()))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.name").value("Ward 1 Councillor"))
+                .andExpect(jsonPath("$.status").value("DRAFT"))
+                .andReturn();
+        String contestId = JsonPath.read(contestResult.getResponse().getContentAsString(), "$.id");
+
+        createContestOption(adminToken, electionId, contestId, "Ubuntu Civic Movement", "PARTY", 1);
+        createContestOption(adminToken, electionId, contestId, "Independent Candidate", "INDEPENDENT_CANDIDATE", 2);
+
+        transitionElection(adminToken, electionId, "REGISTRATION_OPEN", "REGISTRATION_OPEN");
+        transitionElection(adminToken, electionId, "REGISTRATION_CLOSED", "REGISTRATION_CLOSED");
+
+        transitionContest(adminToken, electionId, contestId, "OPEN", "OPEN");
+        transitionElection(adminToken, electionId, "VOTING_OPEN", "VOTING_OPEN");
+        transitionContest(adminToken, electionId, contestId, "CLOSED", "CLOSED");
+        transitionElection(adminToken, electionId, "COMPLETED", "COMPLETED");
+
+        mockMvc.perform(get("/api/v1/elections/{electionId}/contests/{contestId}/results", electionId, contestId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.contestName").value("Ward 1 Councillor"))
+                .andExpect(jsonPath("$.ballotsCast").value(0))
+                .andExpect(jsonPath("$.validVotes").value(0));
+    }
+
+    @Test
+    void adminCannotSkipElectionLifecycleOrOpenContestWithoutOptions() throws Exception {
+        String adminToken = bootstrapAdminAndReturnToken("admin.lifecycle.invalid@example.com");
+        String electionId = createElectionAndReturnId(adminToken);
+        String contestId = createContestAndReturnId(adminToken, electionId);
+
+        mockMvc.perform(patch("/api/v1/admin/elections/{electionId}/status", electionId)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(statusBody("VOTING_OPEN")))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value("Cannot transition election from DRAFT to VOTING_OPEN"));
+
+        transitionElection(adminToken, electionId, "REGISTRATION_OPEN", "REGISTRATION_OPEN");
+        transitionElection(adminToken, electionId, "REGISTRATION_CLOSED", "REGISTRATION_CLOSED");
+
+        mockMvc.perform(patch("/api/v1/admin/elections/{electionId}/contests/{contestId}/status", electionId, contestId)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(statusBody("OPEN")))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value("Contest must have at least two ballot options before opening"));
+    }
+
+    private String bootstrapAdminAndReturnToken(String email) throws Exception {
+        MvcResult result = mockMvc.perform(post("/api/v1/admin/bootstrap")
+                        .header(AdminBootstrapController.BOOTSTRAP_TOKEN_HEADER, BOOTSTRAP_TOKEN)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(adminBootstrapBody(email)))
+                .andExpect(status().isCreated())
+                .andReturn();
+
+        return JsonPath.read(result.getResponse().getContentAsString(), "$.accessToken");
+    }
+
+    private String registerVoterAndReturnToken(String email) throws Exception {
+        String body = """
+                {
+                  "email": "%s",
+                  "password": "VeryStrongPassword1"
+                }
+                """.formatted(email);
+
+        MvcResult result = mockMvc.perform(post("/api/v1/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isCreated())
+                .andReturn();
+
+        return JsonPath.read(result.getResponse().getContentAsString(), "$.accessToken");
+    }
+
+    private String createElectionAndReturnId(String adminToken) throws Exception {
+        MvcResult result = mockMvc.perform(post("/api/v1/admin/elections")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(electionBody()))
+                .andExpect(status().isCreated())
+                .andReturn();
+
+        return JsonPath.read(result.getResponse().getContentAsString(), "$.id");
+    }
+
+    private String createContestAndReturnId(String adminToken, String electionId) throws Exception {
+        MvcResult result = mockMvc.perform(post("/api/v1/admin/elections/{electionId}/contests", electionId)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(contestBody()))
+                .andExpect(status().isCreated())
+                .andReturn();
+
+        return JsonPath.read(result.getResponse().getContentAsString(), "$.id");
+    }
+
+    private void createContestOption(
+            String adminToken,
+            String electionId,
+            String contestId,
+            String name,
+            String optionType,
+            int displayOrder
+    ) throws Exception {
+        String body = """
+                {
+                  "name": "%s",
+                  "optionType": "%s",
+                  "displayOrder": %d
+                }
+                """.formatted(name, optionType, displayOrder);
+
+        mockMvc.perform(post("/api/v1/admin/elections/{electionId}/contests/{contestId}/options", electionId, contestId)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.name").value(name))
+                .andExpect(jsonPath("$.optionType").value(optionType))
+                .andExpect(jsonPath("$.displayOrder").value(displayOrder));
+    }
+
+    private void transitionElection(String adminToken, String electionId, String status, String expectedStatus)
+            throws Exception {
+        mockMvc.perform(patch("/api/v1/admin/elections/{electionId}/status", electionId)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(statusBody(status)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value(expectedStatus));
+    }
+
+    private void transitionContest(
+            String adminToken,
+            String electionId,
+            String contestId,
+            String status,
+            String expectedStatus
+    ) throws Exception {
+        mockMvc.perform(patch("/api/v1/admin/elections/{electionId}/contests/{contestId}/status", electionId, contestId)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(statusBody(status)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value(expectedStatus));
+    }
+
+    private String adminBootstrapBody(String email) {
+        return """
+                {
+                  "email": "%s",
+                  "password": "VeryStrongPassword1"
+                }
+                """.formatted(email);
+    }
+
+    private String votingDistrictBody() {
+        return """
+                {
+                  "code": "wc001-0001",
+                  "name": "Cape Town Ward 1 Station",
+                  "province": "Western Cape",
+                  "municipality": "City of Cape Town",
+                  "wardNumber": 1
+                }
+                """;
+    }
+
+    private String electionBody() {
+        return """
+                {
+                  "name": "2024 Local Government Simulation",
+                  "type": "MUNICIPAL",
+                  "registrationStartAt": "2024-01-01T00:00:00Z",
+                  "registrationEndAt": "2024-02-01T00:00:00Z",
+                  "votingStartAt": "2024-03-01T07:00:00Z",
+                  "votingEndAt": "2024-03-01T21:00:00Z"
+                }
+                """;
+    }
+
+    private String contestBody() {
+        return """
+                {
+                  "name": "Ward 1 Councillor",
+                  "type": "MUNICIPAL_WARD",
+                  "displayOrder": 1
+                }
+                """;
+    }
+
+    private String statusBody(String status) {
+        return """
+                {
+                  "status": "%s"
+                }
+                """.formatted(status);
+    }
+}

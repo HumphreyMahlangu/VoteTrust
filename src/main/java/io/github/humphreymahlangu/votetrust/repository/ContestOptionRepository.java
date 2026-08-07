@@ -13,4 +13,10 @@ public interface ContestOptionRepository extends JpaRepository<ContestOption, UU
 
     @EntityGraph(attributePaths = {"contest", "contest.election"})
     Optional<ContestOption> findByIdAndContestId(UUID id, UUID contestId);
+
+    boolean existsByContestIdAndNameIgnoreCase(UUID contestId, String name);
+
+    boolean existsByContestIdAndDisplayOrder(UUID contestId, Integer displayOrder);
+
+    long countByContestId(UUID contestId);
 }

@@ -105,6 +105,10 @@ public class Election {
         return status;
     }
 
+    public void transitionTo(ElectionStatus status) {
+        this.status = status;
+    }
+
     public Instant getCreatedAt() {
         return createdAt;
     }
