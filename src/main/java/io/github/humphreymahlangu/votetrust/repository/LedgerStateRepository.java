@@ -11,6 +11,8 @@ import org.springframework.data.repository.query.Param;
 
 public interface LedgerStateRepository extends JpaRepository<LedgerState, UUID> {
 
+    Optional<LedgerState> findByContestId(UUID contestId);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""
             select ledgerState

@@ -14,6 +14,7 @@ import java.util.Base64;
 import java.util.HexFormat;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class VoteHashChainService {
@@ -32,6 +33,7 @@ public class VoteHashChainService {
         this.ballotLedgerEntryRepository = ballotLedgerEntryRepository;
     }
 
+    @Transactional
     public BallotLedgerEntry appendVote(Contest contest, ContestOption contestOption, Instant castAt) {
         LedgerState ledgerState = ledgerStateRepository.findByContestIdForUpdate(contest.getId())
                 .orElseGet(() -> ledgerStateRepository.saveAndFlush(new LedgerState(contest)));

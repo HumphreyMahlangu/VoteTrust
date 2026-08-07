@@ -164,6 +164,22 @@ Set these secrets through environment variables. Do not commit real values.
 * `VOTETRUST_ID_HASH_PEPPER`: HMAC pepper for hashing South African ID numbers with at least 32 characters.
 * `VOTETRUST_VOTE_CREDENTIAL_PEPPER`: HMAC pepper for hashing anonymous voting credentials with at least 32 characters.
 
+## API Surface
+
+Current implemented endpoints include:
+
+* `POST /api/v1/auth/register` and `POST /api/v1/auth/login`
+* `GET /api/v1/elections` and `GET /api/v1/elections/{electionId}`
+* `POST /api/v1/elections/{electionId}/registrations`
+* `GET /api/v1/elections/{electionId}/contests`
+* `POST /api/v1/elections/{electionId}/contests/{contestId}/credentials`
+* `POST /api/v1/ballots`
+* `GET /api/v1/elections/{electionId}/contests/{contestId}/results`
+* `GET /api/v1/elections/{electionId}/contests/{contestId}/audit`
+* `GET /api/v1/elections/{electionId}/contests/{contestId}/ledger`
+
+Results, audit summaries, and public ledger entries are exposed only after the election status is `COMPLETED`, the contest status is `CLOSED`, and the voting window has ended.
+
 ## Documentation
 
 * OpenAPI (Swagger)
