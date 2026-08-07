@@ -34,22 +34,18 @@ public class AnonymousVotingCredential {
     @Column(name = "credential_hash", nullable = false, length = 64)
     private String credentialHash;
 
-    @Column(name = "issued_at", nullable = false)
-    private Instant issuedAt;
-
     @Column(name = "expires_at", nullable = false)
     private Instant expiresAt;
 
-    @Column(name = "used_at")
-    private Instant usedAt;
+    @Column(nullable = false)
+    private boolean used;
 
     protected AnonymousVotingCredential() {
     }
 
-    public AnonymousVotingCredential(Contest contest, String credentialHash, Instant issuedAt, Instant expiresAt) {
+    public AnonymousVotingCredential(Contest contest, String credentialHash, Instant expiresAt) {
         this.contest = contest;
         this.credentialHash = credentialHash;
-        this.issuedAt = issuedAt;
         this.expiresAt = expiresAt;
     }
 
@@ -65,23 +61,15 @@ public class AnonymousVotingCredential {
         return credentialHash;
     }
 
-    public Instant getIssuedAt() {
-        return issuedAt;
-    }
-
     public Instant getExpiresAt() {
         return expiresAt;
     }
 
-    public Instant getUsedAt() {
-        return usedAt;
-    }
-
     public boolean isUsed() {
-        return usedAt != null;
+        return used;
     }
 
-    public void markUsed(Instant usedAt) {
-        this.usedAt = usedAt;
+    public void markUsed() {
+        this.used = true;
     }
 }

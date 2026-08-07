@@ -52,6 +52,32 @@ class FlywayPostgreSqlMigrationIntegrationTest extends PostgreSqlTestContainerSu
     }
 
     @Test
+    void flywayAppliesVoteCorrelationMetadataMinimizationMigration() {
+        Integer appliedMigrationCount = jdbcTemplate.queryForObject(
+                "select count(*) from flyway_schema_history where version = '6' and success = true",
+                Integer.class
+        );
+        Integer retainedBooleanColumnCount = jdbcTemplate.queryForObject("""
+                select count(*)
+                from information_schema.columns
+                where (table_name = 'voting_rights' and column_name = 'credential_issued')
+                   or (table_name = 'anonymous_voting_credentials' and column_name = 'used')
+                """, Integer.class);
+        Integer removedTimingColumnCount = jdbcTemplate.queryForObject("""
+                select count(*)
+                from information_schema.columns
+                where (table_name = 'voting_rights'
+                       and column_name in ('credential_issued_at', 'created_at', 'updated_at'))
+                   or (table_name = 'anonymous_voting_credentials'
+                       and column_name in ('issued_at', 'used_at'))
+                """, Integer.class);
+
+        assertThat(appliedMigrationCount).isEqualTo(1);
+        assertThat(retainedBooleanColumnCount).isEqualTo(2);
+        assertThat(removedTimingColumnCount).isZero();
+    }
+
+    @Test
     void postgresRejectsContestScopeThatViolatesMigrationConstraint() {
         UUID electionId = UUID.randomUUID();
         jdbcTemplate.update("""

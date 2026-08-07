@@ -204,7 +204,9 @@ class TallyAuditIntegrationTest extends PostgreSqlTestContainerSupport {
                 .andExpect(jsonPath("$[0].previousHash").value(LedgerState.GENESIS_HASH))
                 .andExpect(jsonPath("$[0].currentHash").value(firstEntry.getCurrentHash()))
                 .andExpect(jsonPath("$[0].nonce").isNotEmpty())
-                .andExpect(jsonPath("$[0].castAt").isNotEmpty());
+                .andExpect(jsonPath("$[0].recordedDate").value("2026-08-07"))
+                .andExpect(jsonPath("$[0].id").doesNotExist())
+                .andExpect(jsonPath("$[0].castAt").doesNotExist());
     }
 
     @Test

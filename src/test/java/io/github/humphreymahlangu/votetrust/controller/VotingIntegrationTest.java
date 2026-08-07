@@ -19,7 +19,6 @@ import io.github.humphreymahlangu.votetrust.entity.Election;
 import io.github.humphreymahlangu.votetrust.entity.ElectionRegistration;
 import io.github.humphreymahlangu.votetrust.entity.ElectionStatus;
 import io.github.humphreymahlangu.votetrust.entity.ElectionType;
-import io.github.humphreymahlangu.votetrust.entity.LedgerState;
 import io.github.humphreymahlangu.votetrust.entity.RegistrationStatus;
 import io.github.humphreymahlangu.votetrust.entity.UserAccount;
 import io.github.humphreymahlangu.votetrust.entity.VoterProfile;
@@ -139,13 +138,12 @@ class VotingIntegrationTest extends PostgreSqlTestContainerSupport {
                         .content(ballotBody(fixture.contest(), fixture.optionA(), credential)))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.contestId").value(fixture.contest().getId().toString()))
-                .andExpect(jsonPath("$.ledgerIndex").value(0))
-                .andExpect(jsonPath("$.previousHash").value(LedgerState.GENESIS_HASH))
-                .andExpect(jsonPath("$.currentHash").isNotEmpty());
+                .andExpect(jsonPath("$.accepted").value(true))
+                .andExpect(jsonPath("$.message").value("Ballot accepted"));
 
         List<AnonymousVotingCredential> credentials = anonymousVotingCredentialRepository.findAll();
         assertThat(credentials).hasSize(1);
-        assertThat(credentials.getFirst().getUsedAt()).isNotNull();
+        assertThat(credentials.getFirst().isUsed()).isTrue();
 
         List<BallotLedgerEntry> entries = ballotLedgerEntryRepository
                 .findByContestIdOrderByLedgerIndexAsc(fixture.contest().getId());

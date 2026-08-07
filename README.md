@@ -130,6 +130,8 @@ The current implementation demonstrates:
 * Digital ballot submission
 * One vote per voter per contest enforcement
 * Ballot ledger entries that do not store voter identity
+* Receipt-resistant ballot responses that do not return ledger hashes, indexes, or ballot entry identifiers
+* Reduced timing-correlation metadata for credential and public ledger records
 * Tamper-evident SHA-256 hash chain for ballot ledger auditing
 * Final result tallying after voting closes
 * Public audit and ledger verification endpoints
@@ -192,7 +194,7 @@ Current implemented endpoints include:
 * `GET /api/v1/elections/{electionId}/contests/{contestId}/audit`
 * `GET /api/v1/elections/{electionId}/contests/{contestId}/ledger`
 
-Results, audit summaries, and public ledger entries are exposed only after the election status is `COMPLETED`, the contest status is `CLOSED`, and the voting window has ended.
+Results, audit summaries, and public ledger entries are exposed only after the election status is `COMPLETED`, the contest status is `CLOSED`, and the voting window has ended. Public ledger entries expose a coarse `recordedDate` instead of exact cast timestamps to reduce timing-correlation risk.
 
 Admin-managed elections and contests are created in `DRAFT` status. Status updates must follow the supported lifecycle:
 

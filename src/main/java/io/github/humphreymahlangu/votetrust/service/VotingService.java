@@ -4,7 +4,6 @@ import io.github.humphreymahlangu.votetrust.dto.BallotCastRequest;
 import io.github.humphreymahlangu.votetrust.dto.BallotCastResponse;
 import io.github.humphreymahlangu.votetrust.dto.VotingCredentialResponse;
 import io.github.humphreymahlangu.votetrust.entity.AnonymousVotingCredential;
-import io.github.humphreymahlangu.votetrust.entity.BallotLedgerEntry;
 import io.github.humphreymahlangu.votetrust.entity.Contest;
 import io.github.humphreymahlangu.votetrust.entity.ContestOption;
 import io.github.humphreymahlangu.votetrust.entity.ContestStatus;
@@ -92,16 +91,14 @@ public class VotingService {
             throw new DuplicateResourceException("A voting credential has already been issued for this contest");
         }
 
-        Instant now = Instant.now(clock);
         String rawCredential = voteCredentialService.generateRawCredential();
         String credentialHash = voteCredentialService.hashCredential(rawCredential);
         anonymousVotingCredentialRepository.save(new AnonymousVotingCredential(
                 contest,
                 credentialHash,
-                now,
                 election.getVotingEndAt()
         ));
-        votingRight.markCredentialIssued(now);
+        votingRight.markCredentialIssued();
 
         return new VotingCredentialResponse(election.getId(), contest.getId(), rawCredential, election.getVotingEndAt());
     }
@@ -128,16 +125,13 @@ public class VotingService {
             throw new InvalidVotingCredentialException();
         }
 
-        credential.markUsed(now);
-        BallotLedgerEntry ballotLedgerEntry = voteHashChainService.appendVote(contest, contestOption, now);
+        credential.markUsed();
+        voteHashChainService.appendVote(contest, contestOption, now);
 
         return new BallotCastResponse(
-                ballotLedgerEntry.getId(),
                 contest.getId(),
-                ballotLedgerEntry.getLedgerIndex(),
-                ballotLedgerEntry.getPreviousHash(),
-                ballotLedgerEntry.getCurrentHash(),
-                ballotLedgerEntry.getCastAt()
+                true,
+                "Ballot accepted"
         );
     }
 

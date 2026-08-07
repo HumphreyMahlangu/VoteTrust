@@ -10,10 +10,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
-import java.time.Instant;
 import java.util.UUID;
-import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.UpdateTimestamp;
 
 @Entity
 @Table(
@@ -37,16 +34,8 @@ public class VotingRight {
     @JoinColumn(name = "contest_id", nullable = false)
     private Contest contest;
 
-    @Column(name = "credential_issued_at")
-    private Instant credentialIssuedAt;
-
-    @CreationTimestamp
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private Instant createdAt;
-
-    @UpdateTimestamp
-    @Column(name = "updated_at", nullable = false)
-    private Instant updatedAt;
+    @Column(name = "credential_issued", nullable = false)
+    private boolean credentialIssued;
 
     protected VotingRight() {
     }
@@ -68,23 +57,11 @@ public class VotingRight {
         return contest;
     }
 
-    public Instant getCredentialIssuedAt() {
-        return credentialIssuedAt;
-    }
-
-    public Instant getCreatedAt() {
-        return createdAt;
-    }
-
-    public Instant getUpdatedAt() {
-        return updatedAt;
-    }
-
     public boolean hasCredentialIssued() {
-        return credentialIssuedAt != null;
+        return credentialIssued;
     }
 
-    public void markCredentialIssued(Instant issuedAt) {
-        this.credentialIssuedAt = issuedAt;
+    public void markCredentialIssued() {
+        this.credentialIssued = true;
     }
 }
