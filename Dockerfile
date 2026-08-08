@@ -12,6 +12,11 @@ RUN ./mvnw -B -DskipTests package
 
 FROM eclipse-temurin:21-jre-jammy
 
+LABEL org.opencontainers.image.title="VoteTrust API" \
+      org.opencontainers.image.description="Secure REST API for a South African online voting simulation" \
+      org.opencontainers.image.source="https://github.com/humphreymahlangu/voting-api" \
+      org.opencontainers.image.licenses="MIT"
+
 RUN apt-get update \
     && apt-get install -y --no-install-recommends curl \
     && rm -rf /var/lib/apt/lists/* \
@@ -26,6 +31,6 @@ USER votetrust
 EXPOSE 8080
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=45s --retries=3 \
-    CMD curl -fsS http://localhost:8080/actuator/health | grep -q '"status":"UP"' || exit 1
+    CMD curl -fsS http://localhost:8080/actuator/health/readiness | grep -q '"status":"UP"' || exit 1
 
 ENTRYPOINT ["sh", "-c", "exec java ${JAVA_OPTS:-} -jar app.jar"]

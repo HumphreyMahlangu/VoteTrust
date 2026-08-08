@@ -1,17 +1,21 @@
 package io.github.humphreymahlangu.votetrust.exception;
 
+import com.fasterxml.jackson.databind.exc.InvalidFormatException;
 import io.github.humphreymahlangu.votetrust.dto.ApiErrorResponse;
 import jakarta.servlet.http.HttpServletRequest;
+import java.util.Arrays;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -131,6 +135,52 @@ public class GlobalExceptionHandler {
                 fieldErrors
         );
         return ResponseEntity.badRequest().body(response);
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    ResponseEntity<ApiErrorResponse> handleTypeMismatch(
+            MethodArgumentTypeMismatchException exception,
+            HttpServletRequest request
+    ) {
+        String parameterName = exception.getName();
+        String message = "Invalid value for '%s'".formatted(parameterName);
+        Class<?> requiredType = exception.getRequiredType();
+        if (requiredType != null) {
+            message = "Invalid %s value for '%s'".formatted(requiredType.getSimpleName(), parameterName);
+        }
+        return error(HttpStatus.BAD_REQUEST, message, request.getRequestURI());
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    ResponseEntity<ApiErrorResponse> handleUnreadableMessage(
+            HttpMessageNotReadableException exception,
+            HttpServletRequest request
+    ) {
+        if (exception.getMostSpecificCause() instanceof InvalidFormatException invalidFormatException) {
+            return error(
+                    HttpStatus.BAD_REQUEST,
+                    invalidFormatMessage(invalidFormatException),
+                    request.getRequestURI()
+            );
+        }
+        return error(HttpStatus.BAD_REQUEST, "Malformed JSON request", request.getRequestURI());
+    }
+
+    private String invalidFormatMessage(InvalidFormatException exception) {
+        String fieldName = exception.getPath().isEmpty()
+                ? "request body"
+                : exception.getPath().getLast().getFieldName();
+        Class<?> targetType = exception.getTargetType();
+
+        if (targetType != null && targetType.isEnum()) {
+            String allowedValues = Arrays.stream(targetType.getEnumConstants())
+                    .map(String::valueOf)
+                    .reduce((left, right) -> left + ", " + right)
+                    .orElse("");
+            return "Invalid value for '%s'. Allowed values: %s".formatted(fieldName, allowedValues);
+        }
+
+        return "Invalid value for '%s'".formatted(fieldName);
     }
 
     private ResponseEntity<ApiErrorResponse> error(HttpStatus status, String message, String path) {
