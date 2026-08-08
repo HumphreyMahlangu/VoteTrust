@@ -51,8 +51,8 @@ class DeploymentArtifactTest {
     void ciVerifiesTestsPackagingComposeAndContainerBuild() throws IOException {
         String ci = read(".github/workflows/ci.yml");
 
-        assertThat(ci).contains("./mvnw -B test");
-        assertThat(ci).contains("./mvnw -B -DskipTests package");
+        assertThat(ci).contains("chmod +x ./mvnw");
+        assertThat(ci).contains("./mvnw -B clean verify");
         assertThat(ci).contains("docker compose --env-file .env.example config");
         assertThat(ci).contains("docker build -t votetrust-api:ci .");
     }
