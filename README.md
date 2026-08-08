@@ -3,19 +3,21 @@
 Exploring how modern software engineering, cryptography, and secure system design can improve transparency, accessibility, and trust in digital voting.
 
 ## Table of Contents
-* Overview
-* Why VoteTrust?
-* The Problem
-* Project Vision
-* Project Goals
-* Core Principles
-* Key Features
-* Technology Stack
-* Local Deployment
-* Project Status
-* Roadmap
-* Disclaimer
-* License
+* [Overview](#overview)
+* [Why VoteTrust?](#why-votetrust)
+* [The Problem](#the-problem)
+* [Project Vision](#project-vision)
+* [Project Goals](#project-goals)
+* [Core Principles](#core-principles)
+* [Key Features](#key-features)
+* [Technology Stack](#technology-stack)
+* [System Architecture / Endpoints](#system-architecture--endpoints)
+* [Local Deployment](#local-deployment)
+* [Project Status](#project-status)
+* [Roadmap](#roadmap)
+* [About the Developer](#about-the-developer)
+* [Disclaimer](#disclaimer)
+* [License](#license)
 
 ## Overview
 VoteTrust is a backend-focused software engineering project that explores how secure digital voting systems can be designed using modern technologies.
