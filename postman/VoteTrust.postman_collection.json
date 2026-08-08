@@ -18,13 +18,15 @@
                 "type": "text/javascript",
                 "exec": [
                   "const now = new Date();",
-                  "const stamp = now.toISOString().replace(/[-:.TZ]/g, '').slice(0, 14);",
-                  "pm.environment.set('demoRunId', stamp);",
-                  "pm.environment.set('voterEmail', `voter+${stamp}@example.com`);",
-                  "pm.environment.set('districtCode', `WC-${stamp.slice(-8)}`);",
-                  "pm.environment.set('districtName', `Cape Town Demo Ward ${stamp.slice(-4)}`);",
-                  "pm.environment.set('electionName', `VoteTrust Demo Election ${stamp}`);",
-                  "pm.environment.set('contestName', `Ward 12 Councillor ${stamp}`);",
+                  "const stamp = now.toISOString().replace(/[-:.TZ]/g, '');",
+                  "const uniqueSuffix = `${stamp.slice(8)}${Math.random().toString(36).slice(2, 6)}`;",
+                  "pm.environment.set('demoRunId', uniqueSuffix);",
+                  "pm.environment.set('voterEmail', `voter+${uniqueSuffix}@example.com`);",
+                  "pm.environment.set('districtCode', `WC-${uniqueSuffix.slice(-12)}`);",
+                  "pm.environment.set('districtName', `Cape Town Demo Ward ${uniqueSuffix.slice(-4)}`);",
+                  "pm.environment.set('electionName', `VoteTrust Demo Election ${uniqueSuffix}`);",
+                  "pm.environment.set('contestName', `Ward 12 Councillor ${uniqueSuffix}`);",
+                  "['votingDistrictId', 'electionId', 'contestId', 'optionAId', 'optionBId', 'blankOptionId', 'spoiltOptionId', 'registrationId', 'voterToken', 'voterUserId', 'votingCredential'].forEach((key) => pm.environment.unset(key));",
                   "",
                   "function southAfricanCheckDigit(first12) {",
                   "  let oddPositionSum = 0;",
@@ -194,7 +196,16 @@
                   "pm.test('Voting district created', function () {",
                   "  pm.response.to.have.status(201);",
                   "});",
-                  "pm.environment.set('votingDistrictId', pm.response.json().id);"
+                  "if (pm.response.code !== 201) {",
+                  "  pm.environment.unset('votingDistrictId');",
+                  "  throw new Error(`Create Voting District failed (${pm.response.code}): ${pm.response.text()}`);",
+                  "}",
+                  "const votingDistrictId = pm.response.json().id;",
+                  "if (!votingDistrictId) {",
+                  "  pm.environment.unset('votingDistrictId');",
+                  "  throw new Error('Create Voting District did not return an id.');",
+                  "}",
+                  "pm.environment.set('votingDistrictId', votingDistrictId);"
                 ]
               }
             }
@@ -228,7 +239,12 @@
                 "type": "text/javascript",
                 "exec": [
                   "const now = Date.now();",
-                  "const registrationWindowMinutes = Math.max(1, Number(pm.environment.get('registrationWindowMinutes') || 2));",
+                  "const electionStamp = new Date().toISOString().replace(/[-:.TZ]/g, '');",
+                  "const electionSuffix = `${electionStamp.slice(8)}${Math.random().toString(36).slice(2, 6)}`;",
+                  "pm.environment.set('electionName', `VoteTrust Demo Election ${electionSuffix}`);",
+                  "pm.environment.set('contestName', `Ward 12 Councillor ${electionSuffix}`);",
+                  "['electionId', 'contestId', 'optionAId', 'optionBId', 'blankOptionId', 'spoiltOptionId', 'registrationId', 'votingCredential'].forEach((key) => pm.environment.unset(key));",
+                  "const registrationWindowMinutes = Math.max(1, Number(pm.environment.get('registrationWindowMinutes') || 30));",
                   "const votingWindowMinutes = Math.max(1, Number(pm.environment.get('votingWindowMinutes') || 5));",
                   "const registrationStartAt = new Date(now - 60000);",
                   "const registrationEndAt = new Date(now + registrationWindowMinutes * 60000);",
@@ -249,7 +265,16 @@
                   "pm.test('Election created', function () {",
                   "  pm.response.to.have.status(201);",
                   "});",
-                  "pm.environment.set('electionId', pm.response.json().id);"
+                  "if (pm.response.code !== 201) {",
+                  "  pm.environment.unset('electionId');",
+                  "  throw new Error(`Create Election failed (${pm.response.code}): ${pm.response.text()}`);",
+                  "}",
+                  "const electionId = pm.response.json().id;",
+                  "if (!electionId) {",
+                  "  pm.environment.unset('electionId');",
+                  "  throw new Error('Create Election did not return an id.');",
+                  "}",
+                  "pm.environment.set('electionId', electionId);"
                 ]
               }
             }
@@ -555,6 +580,29 @@
         {
           "name": "Register Voter For Election",
           "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const requiredEnvironmentVariables = [",
+                  "  'electionId',",
+                  "  'votingDistrictId',",
+                  "  'voterSouthAfricanIdNumber',",
+                  "  'voterToken'",
+                  "];",
+                  "const missingVariables = requiredEnvironmentVariables.filter((key) => {",
+                  "  const value = pm.environment.get(key);",
+                  "  const unresolvedStart = String.fromCharCode(123, 123);",
+                  "  const unresolvedEnd = String.fromCharCode(125, 125);",
+                  "  return !value || value.includes(unresolvedStart) || value.includes(unresolvedEnd);",
+                  "});",
+                  "if (missingVariables.length > 0) {",
+                  "  throw new Error(`Missing Postman environment value(s): ${missingVariables.join(', ')}. Run Initialize Demo Variables, Create Voting District, Create Election, Register Voter Account, and Login Voter first.`);",
+                  "}"
+                ]
+              }
+            },
             {
               "listen": "test",
               "script": {

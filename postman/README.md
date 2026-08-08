@@ -1,11 +1,11 @@
 # VoteTrust Postman Assets
 
-Import these two files into Postman:
+Import these two verified files into Postman:
 
-* `VoteTrust.postman_collection.json`
-* `VoteTrust.local.postman_environment.json`
+* `VoteTrust.verified.postman_collection.json`
+* `VoteTrust.verified-local.postman_environment.json`
 
-Select the `VoteTrust Local` environment before running requests.
+Select the `VoteTrust Verified Local` environment before running requests.
 
 ## Before You Start
 
@@ -23,13 +23,16 @@ The local environment assumes:
 
 ## Recommended Flow
 
-1. Run `00 - Health and Demo Setup / Initialize Demo Variables`.
-2. Run `01 - Admin Auth / Bootstrap First Admin` once. If an admin already exists, run `Login Admin`.
-3. Run the admin setup requests through `Transition Election to REGISTRATION_OPEN`.
-4. Register and log in the voter, then run `Register Voter For Election` before `registrationEndAt`.
-5. Wait until `votingStartAt`, then run the voting status transitions, issue a credential, and cast one ballot.
-6. Wait until `votingEndAt`, then close the contest, complete the election, and query results/audit/ledger.
+1. Run `00 - Start Here / Reset Verified Demo Data`.
+2. Run `01 - Admin Auth / Bootstrap First Admin - Optional` once. If an admin already exists, continue with `Login Admin`.
+3. Run `01 - Admin Auth / Login Admin`.
+4. Run every request in `02 - Election Setup`.
+5. Run every request in `03 - Public Reads`.
+6. Run every request in `04 - Voter Registration` before `registrationEndAt`.
+7. Run `05 - Voting` in order. If `Timing Check - Voting Window Open` tells you to wait, wait the stated number of seconds and rerun that request.
+8. Run `06 - Results and Audit` in order. If `Timing Check - Voting Window Closed` tells you to wait, wait the stated number of seconds and rerun that request.
+9. Run `07 - Negative Checks` only after a successful ballot has been cast.
 
-The collection generates a short demo election by default: registration stays open for 2 minutes, then voting stays open for 5 minutes. You can change `registrationWindowMinutes` and `votingWindowMinutes` in the Postman environment.
+The verified collection generates unique demo data on each reset and creates short test windows by default: registration stays open for 180 seconds, then voting stays open for 90 seconds. You can change `registrationGraceSeconds` and `votingDurationSeconds` in the Postman environment before running `Create Election`.
 
-Blank and spoilt ballot requests are included as optional alternatives. A credential can only be used once, so run only one ballot-casting request per issued credential.
+The older `VoteTrust.postman_collection.json` files are kept for compatibility, but use the verified pair above for manual testing.
