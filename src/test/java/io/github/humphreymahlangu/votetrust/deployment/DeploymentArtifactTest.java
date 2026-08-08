@@ -116,6 +116,11 @@ class DeploymentArtifactTest {
         assertThat(script).contains("Microsoft.App/environments");
         assertThat(script).contains("Microsoft.DBforPostgreSQL/flexibleServers");
         assertThat(script).contains("--public-access\", \"Disabled\"");
+        assertThat(script).doesNotContain("\"--database-name\", $DatabaseName");
+        assertThat(script).containsSubsequence(
+                "\"db\", \"show\", \"--name\", $DatabaseName",
+                "\"db\", \"create\"",
+                "\"--name\", $DatabaseName");
         assertThat(script).contains("--admin-enabled\", \"false\"");
         assertThat(script).contains("Key Vault Secrets User");
         assertThat(script).contains("AcrPull");
