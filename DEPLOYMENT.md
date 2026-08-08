@@ -48,6 +48,43 @@ The GitHub Actions workflow must pass:
 * Docker Compose config validation with `.env.example`.
 * Container image build.
 
+## Azure ACR Tasks Deployment
+
+VoteTrust can be deployed to Azure Container Apps through Azure Container Registry Tasks. This keeps GitHub Actions responsible for tests and uses ACR Tasks for image build, push, and runtime update after code reaches `main`.
+
+The Azure deployment assets live in `infra/azure/`:
+
+* `acr-task.yaml` builds the Dockerfile image, tags it with the Git commit SHA and `main`, pushes both tags to ACR, and updates Azure Container Apps.
+* `provision-acr-tasks-deployment.ps1` creates the Azure resource group, ACR, private-network PostgreSQL Flexible Server, Key Vault, managed identities, Container Apps environment, Container App, and ACR Task.
+* `README.md` contains the exact runbook for provisioning, validation, first-admin bootstrap, ACR task logs, manual task runs, and rollback.
+
+Prerequisites:
+
+```powershell
+az login
+az account set --subscription "<subscription-id-or-name>"
+az extension add --name containerapp --upgrade
+$env:GITHUB_PAT = "<github-pat-with-public_repo-and-repo:status>"
+```
+
+Deploy:
+
+```powershell
+pwsh .\infra\azure\provision-acr-tasks-deployment.ps1
+```
+
+The script targets `spaincentral` by default and stops during preflight if Azure Container Apps, ACR, Key Vault, or PostgreSQL Flexible Server is unavailable in that region for the active subscription.
+
+After deployment, verify:
+
+```powershell
+$baseUrl = "https://<container-app-fqdn>"
+curl "$baseUrl/actuator/health/readiness"
+curl "$baseUrl/swagger-ui.html"
+```
+
+For Postman, set the environment `baseUrl` to the Container App URL.
+
 ## Production Hardening Notes
 
 * Keep `VOTETRUST_ADMIN_BOOTSTRAP_ENABLED=false` except during a controlled first-admin bootstrap window.
@@ -56,3 +93,5 @@ The GitHub Actions workflow must pass:
 * Restrict public exposure to the REST API and health endpoints required by the platform.
 * Use an API gateway or distributed limiter for horizontally scaled deployments.
 * Store logs centrally, but do not log raw credentials, South African ID numbers, anonymous voting credentials, or ballot receipts.
+* Protect `main` in GitHub so only CI-passing pull requests can trigger the ACR production deployment task.
+* Use a separate migration/database role before treating this as a real production deployment; the portfolio script uses the managed PostgreSQL admin account so Flyway can bootstrap the schema automatically.
