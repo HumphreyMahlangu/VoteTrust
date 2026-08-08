@@ -22,6 +22,22 @@ class DeploymentArtifactTest {
     }
 
     @Test
+    void productionPackagingExcludesTestConfigurationAndRepositoryOnlyAssets() throws IOException {
+        assertThat(Path.of("src/main/resources/application-test.properties")).doesNotExist();
+        assertThat(Path.of("src/test/resources/application-test.properties")).exists();
+        assertThat(Files.readAllLines(Path.of(".dockerignore"))).containsExactly(
+                "**",
+                "!Dockerfile",
+                "!.mvn/",
+                "!.mvn/**",
+                "!mvnw",
+                "!pom.xml",
+                "!src/",
+                "!src/main/",
+                "!src/main/**");
+    }
+
+    @Test
     void composeRequiresSecretsAndRunsApiWithContainerHardening() throws IOException {
         String compose = read("compose.yaml");
 
