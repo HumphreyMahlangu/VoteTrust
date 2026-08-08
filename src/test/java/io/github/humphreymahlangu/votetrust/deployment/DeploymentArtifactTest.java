@@ -51,8 +51,13 @@ class DeploymentArtifactTest {
     void ciVerifiesTestsPackagingComposeAndContainerBuild() throws IOException {
         String ci = read(".github/workflows/ci.yml");
 
+        assertThat(ci).contains("uses: actions/checkout@v7");
+        assertThat(ci).contains("uses: actions/setup-java@v5");
+        assertThat(ci).contains("postgres:16-alpine");
+        assertThat(ci).contains("VOTETRUST_TEST_DATASOURCE_URL: jdbc:postgresql://localhost:5432/votetrust_test");
         assertThat(ci).contains("chmod +x ./mvnw");
         assertThat(ci).contains("./mvnw -B clean verify");
+        assertThat(ci).contains("actions/upload-artifact@v7");
         assertThat(ci).contains("docker compose --env-file .env.example config");
         assertThat(ci).contains("docker build -t votetrust-api:ci .");
     }
