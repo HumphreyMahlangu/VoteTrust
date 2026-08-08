@@ -17,12 +17,32 @@ jobs:
     name: Maven Test
     runs-on: ubuntu-latest
 
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: votetrust_test
+          POSTGRES_USER: votetrust
+          POSTGRES_PASSWORD: votetrust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U votetrust -d votetrust_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      VOTETRUST_TEST_DATASOURCE_URL: jdbc:postgresql://localhost:5432/votetrust_test
+      VOTETRUST_TEST_DATASOURCE_USERNAME: votetrust
+      VOTETRUST_TEST_DATASOURCE_PASSWORD: votetrust
+
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Java
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "21"
@@ -35,7 +55,43 @@ jobs:
         run: chmod +x ./mvnw
 
       - name: Run Maven verification
+        id: maven-verify
+        continue-on-error: true
         run: ./mvnw -B clean verify
+
+      - name: Publish Maven failure reports
+        if: steps.maven-verify.outcome == 'failure'
+        run: |
+          {
+            echo "## Maven verification failed"
+            echo
+            echo "### Surefire report summaries"
+            if [ -d target/surefire-reports ]; then
+              find target/surefire-reports -maxdepth 1 -type f \( -name "*.txt" -o -name "*.xml" \) -print | sort | while read -r report; do
+                echo
+                echo "#### $report"
+                echo '```'
+                sed -n '1,220p' "$report"
+                echo '```'
+              done
+            else
+              echo "No Surefire reports were generated."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload Maven failure reports
+        if: steps.maven-verify.outcome == 'failure'
+        uses: actions/upload-artifact@v7
+        with:
+          name: maven-failure-reports
+          path: |
+            target/surefire-reports/
+            target/failsafe-reports/
+          if-no-files-found: ignore
+
+      - name: Fail after report publication
+        if: steps.maven-verify.outcome == 'failure'
+        run: exit 1
 
       - name: Validate Docker Compose config
         run: docker compose --env-file .env.example config
