@@ -231,6 +231,7 @@ A voter receives a credential only when their registered voting district matches
 * OpenAPI JSON: `GET /api-docs`
 * Swagger UI: `GET /swagger-ui.html`
 * Controller groups include tags, operation descriptions, bearer-token requirements, error responses, and request/response schema examples.
+* Postman collection and local environment: [`postman/`](postman/)
 
 ## Testing
 
@@ -275,12 +276,19 @@ The API will be available at:
 * `http://localhost:8080`
 * `http://localhost:8080/swagger-ui.html`
 * `http://localhost:8080/actuator/health`
+* `http://localhost:8080/actuator/health/readiness`
 
 ## Build Container Image Only
 
 ```powershell
 docker build -t votetrust-api:local .
 ```
+
+See [DEPLOYMENT.md](DEPLOYMENT.md) for the deployment checklist and CI deployment gates.
+
+## Test With Postman
+
+Import [`postman/VoteTrust.postman_collection.json`](postman/VoteTrust.postman_collection.json) and [`postman/VoteTrust.local.postman_environment.json`](postman/VoteTrust.local.postman_environment.json), then follow the folder order in the collection. The Postman README explains the short registration/voting-window timing used for the local demo.
 
 ## Production Notes
 
@@ -300,9 +308,9 @@ docker build -t votetrust-api:local .
 
 # Project Status
 
-🚧 **Portfolio MVP Implemented**
+✅ **Portfolio MVP Deployment-Verified**
 
-The core backend workflow is implemented: authentication, voter registration, anonymous voting, hash-chain auditability, final tallying, OpenAPI documentation, automated tests, and local container deployment support.
+The core backend workflow is implemented and deployment-verified: authentication, voter registration, anonymous voting, hash-chain auditability, final tallying, OpenAPI documentation, automated tests, local container deployment support, and CI checks for packaging, Compose config validation, and container image build.
 
 The project remains an educational portfolio simulation and should not be presented as a certified online election platform.
 

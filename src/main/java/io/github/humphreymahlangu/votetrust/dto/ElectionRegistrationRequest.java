@@ -15,7 +15,7 @@ public record ElectionRegistrationRequest(
         String southAfricanIdNumber,
 
         @NotNull
-        @Schema(description = "Identity document type supplied for registration", example = "SOUTH_AFRICAN_ID")
+        @Schema(description = "Identity document type supplied for registration", example = "SMART_ID_CARD")
         IdDocumentType idDocumentType,
 
         @NotNull
