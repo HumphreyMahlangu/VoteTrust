@@ -31,11 +31,11 @@ jobs:
       - name: Verify Docker for Testcontainers
         run: docker version
 
-      - name: Run tests
-        run: ./mvnw -B test
+      - name: Ensure Maven wrapper is executable
+        run: chmod +x ./mvnw
 
-      - name: Package application
-        run: ./mvnw -B -DskipTests package
+      - name: Run Maven verification
+        run: ./mvnw -B clean verify
 
       - name: Validate Docker Compose config
         run: docker compose --env-file .env.example config
