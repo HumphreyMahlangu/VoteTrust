@@ -194,6 +194,40 @@ class VoterRegistrationIntegrationTest extends PostgreSqlTestContainerSupport {
     }
 
     @Test
+    void registerForElectionRejectsMalformedElectionIdWithoutMaskingAsUnauthorizedError() throws Exception {
+        VotingDistrict district = createVotingDistrict();
+        String token = registerAccountAndReturnToken("registration.bad-election-id@example.com");
+
+        mockMvc.perform(post("/api/v1/elections/not-a-uuid/registrations")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(registrationBody("1001015000083", district)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Invalid UUID value for 'electionId'"))
+                .andExpect(jsonPath("$.path").value("/api/v1/elections/not-a-uuid/registrations"));
+    }
+
+    @Test
+    void registerForElectionRejectsMalformedVotingDistrictIdWithoutMaskingAsUnauthorizedError() throws Exception {
+        Election election = createOpenElection();
+        String token = registerAccountAndReturnToken("registration.bad-district-id@example.com");
+
+        mockMvc.perform(post("/api/v1/elections/{electionId}/registrations", election.getId())
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "southAfricanIdNumber": "1001015000083",
+                                  "idDocumentType": "SMART_ID_CARD",
+                                  "votingDistrictId": "not-a-uuid"
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Invalid value for 'votingDistrictId'"))
+                .andExpect(jsonPath("$.path").value("/api/v1/elections/%s/registrations".formatted(election.getId())));
+    }
+
+    @Test
     void listElectionsAndVotingDistrictsArePublicReadOnlyEndpoints() throws Exception {
         VotingDistrict district = createVotingDistrict();
         Election election = createOpenElection();

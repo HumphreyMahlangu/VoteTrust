@@ -1,0 +1,1041 @@
+{
+  "info": {
+    "_postman_id": "2e26a746-24e2-4f95-8e6f-2fd8b89c9e5a",
+    "name": "VoteTrust API",
+    "description": "End-to-end Postman collection for the VoteTrust secure voting API. Import with the VoteTrust Local environment and follow the folder order for a demo run.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "00 - Health and Demo Setup",
+      "item": [
+        {
+          "name": "Initialize Demo Variables",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const now = new Date();",
+                  "const stamp = now.toISOString().replace(/[-:.TZ]/g, '').slice(0, 14);",
+                  "pm.environment.set('demoRunId', stamp);",
+                  "pm.environment.set('voterEmail', `voter+${stamp}@example.com`);",
+                  "pm.environment.set('districtCode', `WC-${stamp.slice(-8)}`);",
+                  "pm.environment.set('districtName', `Cape Town Demo Ward ${stamp.slice(-4)}`);",
+                  "pm.environment.set('electionName', `VoteTrust Demo Election ${stamp}`);",
+                  "pm.environment.set('contestName', `Ward 12 Councillor ${stamp}`);",
+                  "",
+                  "function southAfricanCheckDigit(first12) {",
+                  "  let oddPositionSum = 0;",
+                  "  for (let index = 0; index < 12; index += 2) {",
+                  "    oddPositionSum += Number(first12[index]);",
+                  "  }",
+                  "  let evenPositionDigits = '';",
+                  "  for (let index = 1; index < 12; index += 2) {",
+                  "    evenPositionDigits += first12[index];",
+                  "  }",
+                  "  const doubledEvenDigitSum = String(Number(evenPositionDigits) * 2)",
+                  "    .split('')",
+                  "    .reduce((sum, digit) => sum + Number(digit), 0);",
+                  "  return (10 - ((oddPositionSum + doubledEvenDigitSum) % 10)) % 10;",
+                  "}",
+                  "",
+                  "const sequence = String(Date.now() % 10000).padStart(4, '0');",
+                  "const first12 = `900101${sequence}08`;",
+                  "pm.environment.set('voterSouthAfricanIdNumber', `${first12}${southAfricanCheckDigit(first12)}`);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('API is reachable', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Demo variables were generated', function () {",
+                  "  pm.expect(pm.environment.get('demoRunId')).to.not.be.empty;",
+                  "  pm.expect(pm.environment.get('voterSouthAfricanIdNumber')).to.have.length(13);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/actuator/health",
+            "description": "Run this first. It generates unique demo data for the current Postman run."
+          },
+          "response": []
+        },
+        {
+          "name": "Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/actuator/health"
+          },
+          "response": []
+        },
+        {
+          "name": "Readiness",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/actuator/health/readiness"
+          },
+          "response": []
+        },
+        {
+          "name": "OpenAPI JSON",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api-docs"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "01 - Admin Auth",
+      "item": [
+        {
+          "name": "Bootstrap First Admin",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Admin created or bootstrap already used', function () {",
+                  "  pm.expect([201, 409]).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code === 201) {",
+                  "  const json = pm.response.json();",
+                  "  pm.environment.set('adminToken', json.accessToken);",
+                  "  pm.environment.set('adminUserId', json.userId);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-VoteTrust-Bootstrap-Token",
+                "value": "{{adminBootstrapToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"{{adminPassword}}\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/admin/bootstrap",
+            "description": "Run once when the database is new and VOTETRUST_ADMIN_BOOTSTRAP_ENABLED=true. If this returns 409, run Login Admin."
+          },
+          "response": []
+        },
+        {
+          "name": "Login Admin",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Admin login succeeded', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.environment.set('adminToken', json.accessToken);",
+                  "pm.environment.set('adminUserId', json.userId);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"{{adminPassword}}\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/auth/login"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "02 - Admin Election Setup",
+      "item": [
+        {
+          "name": "Create Voting District",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Voting district created', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "pm.environment.set('votingDistrictId', pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"{{districtCode}}\",\n  \"name\": \"{{districtName}}\",\n  \"province\": \"Western Cape\",\n  \"municipality\": \"City of Cape Town\",\n  \"wardNumber\": 12\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/admin/voting-districts"
+          },
+          "response": []
+        },
+        {
+          "name": "Create Election",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const now = Date.now();",
+                  "const registrationWindowMinutes = Math.max(1, Number(pm.environment.get('registrationWindowMinutes') || 2));",
+                  "const votingWindowMinutes = Math.max(1, Number(pm.environment.get('votingWindowMinutes') || 5));",
+                  "const registrationStartAt = new Date(now - 60000);",
+                  "const registrationEndAt = new Date(now + registrationWindowMinutes * 60000);",
+                  "const votingStartAt = new Date(registrationEndAt.getTime());",
+                  "const votingEndAt = new Date(votingStartAt.getTime() + votingWindowMinutes * 60000);",
+                  "pm.environment.set('registrationStartAt', registrationStartAt.toISOString());",
+                  "pm.environment.set('registrationEndAt', registrationEndAt.toISOString());",
+                  "pm.environment.set('votingStartAt', votingStartAt.toISOString());",
+                  "pm.environment.set('votingEndAt', votingEndAt.toISOString());"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Election created', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "pm.environment.set('electionId', pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"{{electionName}}\",\n  \"type\": \"MUNICIPAL\",\n  \"registrationStartAt\": \"{{registrationStartAt}}\",\n  \"registrationEndAt\": \"{{registrationEndAt}}\",\n  \"votingStartAt\": \"{{votingStartAt}}\",\n  \"votingEndAt\": \"{{votingEndAt}}\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/admin/elections",
+            "description": "Creates a short demo election. Register the voter before registrationEndAt, then wait until votingStartAt before issuing a credential."
+          },
+          "response": []
+        },
+        {
+          "name": "Create Contest",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Contest created', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "pm.environment.set('contestId', pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"{{contestName}}\",\n  \"type\": \"MUNICIPAL_WARD\",\n  \"displayOrder\": 1,\n  \"scopeProvince\": \"Western Cape\",\n  \"scopeMunicipality\": \"City of Cape Town\",\n  \"scopeWardNumber\": 12\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/admin/elections/{{electionId}}/contests"
+          },
+          "response": []
+        },
+        {
+          "name": "Create Option A",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Option A created', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "pm.environment.set('optionAId', pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Ubuntu Civic Party\",\n  \"optionType\": \"PARTY\",\n  \"displayOrder\": 1\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/admin/elections/{{electionId}}/contests/{{contestId}}/options"
+          },
+          "response": []
+        },
+        {
+          "name": "Create Option B",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Option B created', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "pm.environment.set('optionBId', pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Future Youth Movement\",\n  \"optionType\": \"PARTY\",\n  \"displayOrder\": 2\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/admin/elections/{{electionId}}/contests/{{contestId}}/options"
+          },
+          "response": []
+        },
+        {
+          "name": "Create Blank Ballot Option",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Blank option created', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "pm.environment.set('blankOptionId', pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Blank ballot\",\n  \"optionType\": \"BLANK_BALLOT\",\n  \"displayOrder\": 98\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/admin/elections/{{electionId}}/contests/{{contestId}}/options"
+          },
+          "response": []
+        },
+        {
+          "name": "Create Spoilt Ballot Option",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Spoilt option created', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "pm.environment.set('spoiltOptionId', pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Spoilt ballot\",\n  \"optionType\": \"SPOILT_BALLOT\",\n  \"displayOrder\": 99\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/admin/elections/{{electionId}}/contests/{{contestId}}/options"
+          },
+          "response": []
+        },
+        {
+          "name": "Transition Election to REGISTRATION_OPEN",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"REGISTRATION_OPEN\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/admin/elections/{{electionId}}/status"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "03 - Voter Registration",
+      "item": [
+        {
+          "name": "Register Voter Account",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Voter account created or already exists', function () {",
+                  "  pm.expect([201, 409]).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code === 201) {",
+                  "  const json = pm.response.json();",
+                  "  pm.environment.set('voterToken', json.accessToken);",
+                  "  pm.environment.set('voterUserId', json.userId);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{voterEmail}}\",\n  \"password\": \"{{voterPassword}}\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/auth/register"
+          },
+          "response": []
+        },
+        {
+          "name": "Login Voter",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Voter login succeeded', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.environment.set('voterToken', json.accessToken);",
+                  "pm.environment.set('voterUserId', json.userId);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{voterEmail}}\",\n  \"password\": \"{{voterPassword}}\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/auth/login"
+          },
+          "response": []
+        },
+        {
+          "name": "Register Voter For Election",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Election registration created', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "pm.environment.set('registrationId', pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{voterToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"southAfricanIdNumber\": \"{{voterSouthAfricanIdNumber}}\",\n  \"idDocumentType\": \"SMART_ID_CARD\",\n  \"votingDistrictId\": \"{{votingDistrictId}}\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/elections/{{electionId}}/registrations",
+            "description": "Run before registrationEndAt. If this fails with registration closed, start a fresh demo run from Initialize Demo Variables."
+          },
+          "response": []
+        },
+        {
+          "name": "My Registrations",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{voterToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/me/registrations"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "04 - Voting",
+      "item": [
+        {
+          "name": "Transition Election to REGISTRATION_CLOSED",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"REGISTRATION_CLOSED\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/admin/elections/{{electionId}}/status"
+          },
+          "response": []
+        },
+        {
+          "name": "Transition Contest to OPEN",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"OPEN\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/admin/elections/{{electionId}}/contests/{{contestId}}/status"
+          },
+          "response": []
+        },
+        {
+          "name": "Transition Election to VOTING_OPEN",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"VOTING_OPEN\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/admin/elections/{{electionId}}/status"
+          },
+          "response": []
+        },
+        {
+          "name": "Timing Check - Voting Window Open",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const votingStartAt = new Date(pm.environment.get('votingStartAt')).getTime();",
+                  "const waitMs = votingStartAt - Date.now();",
+                  "if (waitMs > 0) {",
+                  "  console.warn(`Wait ${Math.ceil(waitMs / 1000)} seconds before issuing a voting credential.`);",
+                  "}",
+                  "pm.test('Voting window has started', function () {",
+                  "  pm.expect(Date.now()).to.be.at.least(votingStartAt);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/actuator/health",
+            "description": "If this fails, wait until votingStartAt and run it again."
+          },
+          "response": []
+        },
+        {
+          "name": "Issue Voting Credential",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Voting credential issued', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "pm.environment.set('votingCredential', pm.response.json().votingCredential);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{voterToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/elections/{{electionId}}/contests/{{contestId}}/credentials"
+          },
+          "response": []
+        },
+        {
+          "name": "Cast Ballot - Option A",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Ballot accepted', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "  pm.expect(pm.response.json().accepted).to.equal(true);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"contestId\": \"{{contestId}}\",\n  \"contestOptionId\": \"{{optionAId}}\",\n  \"votingCredential\": \"{{votingCredential}}\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/ballots",
+            "description": "Run only one ballot-casting request per issued credential."
+          },
+          "response": []
+        },
+        {
+          "name": "Optional - Cast Blank Ballot",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"contestId\": \"{{contestId}}\",\n  \"contestOptionId\": \"{{blankOptionId}}\",\n  \"votingCredential\": \"{{votingCredential}}\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/ballots",
+            "description": "Alternative to Option A. Requires a fresh unused votingCredential."
+          },
+          "response": []
+        },
+        {
+          "name": "Optional - Cast Spoilt Ballot",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"contestId\": \"{{contestId}}\",\n  \"contestOptionId\": \"{{spoiltOptionId}}\",\n  \"votingCredential\": \"{{votingCredential}}\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/ballots",
+            "description": "Alternative to Option A. Requires a fresh unused votingCredential."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "05 - Results and Audit",
+      "item": [
+        {
+          "name": "Timing Check - Voting Window Closed",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const votingEndAt = new Date(pm.environment.get('votingEndAt')).getTime();",
+                  "const waitMs = votingEndAt - Date.now();",
+                  "if (waitMs > 0) {",
+                  "  console.warn(`Wait ${Math.ceil(waitMs / 1000)} seconds before closing and auditing results.`);",
+                  "}",
+                  "pm.test('Voting window has ended', function () {",
+                  "  pm.expect(Date.now()).to.be.greaterThan(votingEndAt);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/actuator/health",
+            "description": "If this fails, wait until votingEndAt and run it again."
+          },
+          "response": []
+        },
+        {
+          "name": "Transition Contest to CLOSED",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"CLOSED\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/admin/elections/{{electionId}}/contests/{{contestId}}/status"
+          },
+          "response": []
+        },
+        {
+          "name": "Transition Election to COMPLETED",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"COMPLETED\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/admin/elections/{{electionId}}/status"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Final Results",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/elections/{{electionId}}/contests/{{contestId}}/results"
+          },
+          "response": []
+        },
+        {
+          "name": "Verify Hash Chain",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/elections/{{electionId}}/contests/{{contestId}}/audit"
+          },
+          "response": []
+        },
+        {
+          "name": "List Public Ledger",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/elections/{{electionId}}/contests/{{contestId}}/ledger"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "06 - Public Reads and Admin Audit",
+      "item": [
+        {
+          "name": "List Voting Districts",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/voting-districts"
+          },
+          "response": []
+        },
+        {
+          "name": "List Elections",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/elections"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Election",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/elections/{{electionId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "List Contests",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/elections/{{electionId}}/contests"
+          },
+          "response": []
+        },
+        {
+          "name": "Admin Security Audit Events",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/security-audit-events?limit=25"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "07 - Negative Checks",
+      "item": [
+        {
+          "name": "Invalid Login Returns 401",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{voterEmail}}\",\n  \"password\": \"WrongPassword1\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/auth/login"
+          },
+          "response": []
+        },
+        {
+          "name": "Duplicate Credential Returns 409",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{voterToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/elections/{{electionId}}/contests/{{contestId}}/credentials",
+            "description": "Run after Issue Voting Credential. The same voter cannot receive a second credential for the same contest."
+          },
+          "response": []
+        },
+        {
+          "name": "Reuse Voting Credential Returns 409",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"contestId\": \"{{contestId}}\",\n  \"contestOptionId\": \"{{optionBId}}\",\n  \"votingCredential\": \"{{votingCredential}}\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/ballots",
+            "description": "Run after successfully casting a ballot."
+          },
+          "response": []
+        },
+        {
+          "name": "Invalid Voting Credential Returns 401",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"contestId\": \"{{contestId}}\",\n  \"contestOptionId\": \"{{optionAId}}\",\n  \"votingCredential\": \"not-a-real-credential\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/ballots"
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

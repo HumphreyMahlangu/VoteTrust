@@ -33,3 +33,12 @@ jobs:
 
       - name: Run tests
         run: ./mvnw -B test
+
+      - name: Package application
+        run: ./mvnw -B -DskipTests package
+
+      - name: Validate Docker Compose config
+        run: docker compose --env-file .env.example config
+
+      - name: Build container image
+        run: docker build -t votetrust-api:ci .
