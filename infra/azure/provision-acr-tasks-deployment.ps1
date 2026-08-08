@@ -504,7 +504,6 @@ if (-not $postgresExists) {
         "--version", "16",
         "--admin-user", $PostgresAdminUser,
         "--admin-password", $postgresAdminPassword,
-        "--database-name", $DatabaseName,
         "--tier", "Burstable",
         "--sku-name", "Standard_B1ms",
         "--storage-size", "32",
@@ -520,10 +519,10 @@ if (-not $postgresExists) {
     throw "PostgreSQL server already exists, but Key Vault secret 'spring-datasource-password' is missing. Add the existing password to Key Vault before rerunning."
 }
 
-if (-not (Try-Az -Arguments @("postgres", "flexible-server", "db", "show", "--database-name", $DatabaseName, "--server-name", $PostgresServerName, "--resource-group", $ResourceGroup))) {
+if (-not (Try-Az -Arguments @("postgres", "flexible-server", "db", "show", "--name", $DatabaseName, "--server-name", $PostgresServerName, "--resource-group", $ResourceGroup))) {
     Invoke-Az -Arguments @(
         "postgres", "flexible-server", "db", "create",
-        "--database-name", $DatabaseName,
+        "--name", $DatabaseName,
         "--server-name", $PostgresServerName,
         "--resource-group", $ResourceGroup,
         "-o", "none"
