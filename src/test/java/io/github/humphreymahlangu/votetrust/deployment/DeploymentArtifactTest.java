@@ -115,7 +115,10 @@ class DeploymentArtifactTest {
         assertThat(script).contains("type: Microsoft.App/containerApps");
         assertThat(script).contains("Microsoft.App/environments");
         assertThat(script).contains("Microsoft.DBforPostgreSQL/flexibleServers");
-        assertThat(script).contains("--public-access\", \"Disabled\"");
+        assertThat(script).doesNotContain("\"--public-access\", \"Disabled\"");
+        assertThat(script).containsSubsequence(
+                "\"--subnet\", $postgresSubnetId",
+                "\"--private-dns-zone\", $privateDnsZoneId");
         assertThat(script).doesNotContain("\"--database-name\", $DatabaseName");
         assertThat(script).containsSubsequence(
                 "\"db\", \"show\", \"--name\", $DatabaseName",

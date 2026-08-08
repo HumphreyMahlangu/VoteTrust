@@ -509,7 +509,6 @@ if (-not $postgresExists) {
         "--storage-size", "32",
         "--storage-auto-grow", "Enabled",
         "--backup-retention", "7",
-        "--public-access", "Disabled",
         "--subnet", $postgresSubnetId,
         "--private-dns-zone", $privateDnsZoneId,
         "--yes",
