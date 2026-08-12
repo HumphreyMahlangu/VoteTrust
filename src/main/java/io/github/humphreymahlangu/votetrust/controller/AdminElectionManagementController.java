@@ -9,9 +9,12 @@ import io.github.humphreymahlangu.votetrust.dto.CreateContestRequest;
 import io.github.humphreymahlangu.votetrust.dto.CreateElectionRequest;
 import io.github.humphreymahlangu.votetrust.dto.CreateVotingDistrictRequest;
 import io.github.humphreymahlangu.votetrust.dto.ElectionResponse;
+import io.github.humphreymahlangu.votetrust.dto.ElectionLifecycleEventResponse;
 import io.github.humphreymahlangu.votetrust.dto.ElectionStatusUpdateRequest;
 import io.github.humphreymahlangu.votetrust.dto.VotingDistrictResponse;
 import io.github.humphreymahlangu.votetrust.service.AdminElectionManagementService;
+import io.github.humphreymahlangu.votetrust.service.ElectionLifecycleService;
+import io.github.humphreymahlangu.votetrust.security.UserPrincipal;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.Operation;
@@ -21,8 +24,11 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.util.UUID;
+import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -66,9 +72,14 @@ import org.springframework.web.bind.annotation.RestController;
 public class AdminElectionManagementController {
 
     private final AdminElectionManagementService adminElectionManagementService;
+    private final ElectionLifecycleService electionLifecycleService;
 
-    public AdminElectionManagementController(AdminElectionManagementService adminElectionManagementService) {
+    public AdminElectionManagementController(
+            AdminElectionManagementService adminElectionManagementService,
+            ElectionLifecycleService electionLifecycleService
+    ) {
         this.adminElectionManagementService = adminElectionManagementService;
+        this.electionLifecycleService = electionLifecycleService;
     }
 
     @PostMapping("/voting-districts")
@@ -86,12 +97,24 @@ public class AdminElectionManagementController {
     }
 
     @PatchMapping("/elections/{electionId}/status")
-    @Operation(summary = "Transition an election status", description = "Supports DRAFT -> REGISTRATION_OPEN -> REGISTRATION_CLOSED -> VOTING_OPEN -> COMPLETED.")
+    @Operation(summary = "Cancel an active election", description = "Normal lifecycle transitions are automatic. This endpoint permits only an audited emergency cancellation.")
     public ElectionResponse updateElectionStatus(
+            @AuthenticationPrincipal UserPrincipal principal,
             @PathVariable UUID electionId,
             @Valid @RequestBody ElectionStatusUpdateRequest request
     ) {
-        return adminElectionManagementService.updateElectionStatus(electionId, request);
+        return adminElectionManagementService.updateElectionStatus(
+                electionId,
+                request,
+                principal.id(),
+                principal.email()
+        );
+    }
+
+    @GetMapping("/elections/{electionId}/lifecycle-events")
+    @Operation(summary = "List election lifecycle events", description = "Returns automatic transitions, failed closed transitions, and administrator cancellations in chronological order.")
+    public List<ElectionLifecycleEventResponse> listElectionLifecycleEvents(@PathVariable UUID electionId) {
+        return electionLifecycleService.listEvents(electionId);
     }
 
     @PostMapping("/elections/{electionId}/contests")
@@ -116,7 +139,7 @@ public class AdminElectionManagementController {
     }
 
     @PatchMapping("/elections/{electionId}/contests/{contestId}/status")
-    @Operation(summary = "Transition a contest status", description = "Supports DRAFT -> OPEN -> CLOSED.")
+    @Operation(summary = "Check a contest status transition", description = "Contest transitions are automatic; requests attempting to change the current status are rejected.")
     public ContestResponse updateContestStatus(
             @PathVariable UUID electionId,
             @PathVariable UUID contestId,

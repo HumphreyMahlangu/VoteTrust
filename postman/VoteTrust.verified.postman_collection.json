@@ -400,10 +400,11 @@
                   "pm.environment.set('electionName', `VoteTrust Verified Election ${suffix}`);",
                   "pm.environment.set('contestName', `Ward 12 Councillor ${suffix}`);",
                   "['electionId', 'contestId', 'optionAId', 'optionBId', 'blankOptionId', 'spoiltOptionId', 'registrationId', 'votingCredential'].forEach((key) => pm.environment.unset(key));",
+                  "const configurationGraceSeconds = Math.max(30, Number(pm.environment.get('configurationGraceSeconds') || 120));",
                   "const registrationGraceSeconds = Math.max(30, Number(pm.environment.get('registrationGraceSeconds') || 180));",
                   "const votingDurationSeconds = Math.max(30, Number(pm.environment.get('votingDurationSeconds') || 90));",
-                  "const registrationStartAt = new Date(now - 60000);",
-                  "const registrationEndAt = new Date(now + registrationGraceSeconds * 1000);",
+                  "const registrationStartAt = new Date(now + configurationGraceSeconds * 1000);",
+                  "const registrationEndAt = new Date(registrationStartAt.getTime() + registrationGraceSeconds * 1000);",
                   "const votingStartAt = new Date(registrationEndAt.getTime() + 5000);",
                   "const votingEndAt = new Date(votingStartAt.getTime() + votingDurationSeconds * 1000);",
                   "pm.environment.set('registrationStartAt', registrationStartAt.toISOString());",
@@ -747,14 +748,67 @@
           "response": []
         },
         {
-          "name": "Transition Election to REGISTRATION_OPEN",
+          "name": "Timing Check - Registration Window Open",
           "event": [
             {
               "listen": "prerequest",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "var requiredVariables = [\"adminToken\",\"electionId\"];",
+                  "var requiredVariables = [\"electionId\",\"votingDistrictId\",\"voterSouthAfricanIdNumber\",\"voterToken\",\"registrationStartAt\",\"registrationEndAt\"];",
+                  "var unresolvedStart = String.fromCharCode(123, 123);",
+                  "var unresolvedEnd = String.fromCharCode(125, 125);",
+                  "var missingVariables = requiredVariables.filter((key) => {",
+                  "  const value = pm.environment.get(key);",
+                  "  return !value || value.includes(unresolvedStart) || value.includes(unresolvedEnd);",
+                  "});",
+                  "if (missingVariables.length > 0) {",
+                  "  throw new Error(`Missing Postman environment value(s): ${missingVariables.join(', ')}.`);",
+                  "}",
+                  "const registrationStartAt = Date.parse(pm.environment.get('registrationStartAt'));",
+                  "const registrationEndAt = Date.parse(pm.environment.get('registrationEndAt'));",
+                  "const secondsUntilStart = Math.ceil((registrationStartAt - Date.now()) / 1000);",
+                  "const secondsRemaining = Math.ceil((registrationEndAt - Date.now()) / 1000);",
+                  "if (secondsUntilStart > 0) {",
+                  "  throw new Error(`Registration has not opened yet. Wait ${secondsUntilStart} second(s), then rerun this request.`);",
+                  "}",
+                  "if (secondsRemaining <= 0) {",
+                  "  throw new Error('Registration window expired for this demo election. Run Reset Verified Demo Data and recreate the election, or increase registrationGraceSeconds before Create Election.');",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Registration start time has arrived', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "if (pm.response.code !== 200) {",
+                  "  throw new Error(`Registration start time has arrived failed (${pm.response.code}): ${pm.response.text()}`);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/actuator/health"
+          },
+          "response": []
+        },
+        {
+          "name": "Confirm Election Is REGISTRATION_OPEN",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var requiredVariables = [\"electionId\"];",
                   "var unresolvedStart = String.fromCharCode(123, 123);",
                   "var unresolvedEnd = String.fromCharCode(125, 125);",
                   "var missingVariables = requiredVariables.filter((key) => {",
@@ -772,37 +826,25 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Election transitioned to REGISTRATION_OPEN', function () {",
+                  "pm.test('Election status is available', function () {",
                   "  pm.response.to.have.status(200);",
                   "});",
                   "if (pm.response.code !== 200) {",
-                  "  throw new Error(`Election transitioned to REGISTRATION_OPEN failed (${pm.response.code}): ${pm.response.text()}`);",
+                  "  throw new Error(`Election status is available failed (${pm.response.code}): ${pm.response.text()}`);",
                   "}",
                   "const json = pm.response.json();",
                   "pm.test('Status is REGISTRATION_OPEN', function () {",
                   "  pm.expect(json.status).to.equal('REGISTRATION_OPEN');",
-                  "});"
+                  "});",
+                  "if (json.status !== 'REGISTRATION_OPEN') { throw new Error('The scheduler has not reached REGISTRATION_OPEN yet. Wait a few seconds and rerun this request.'); }"
                 ]
               }
             }
           ],
           "request": {
-            "method": "PATCH",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              },
-              {
-                "key": "Authorization",
-                "value": "Bearer {{adminToken}}"
-              }
-            ],
-            "url": "{{baseUrl}}/api/v1/admin/elections/{{electionId}}/status",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"status\": \"REGISTRATION_OPEN\"\n}"
-            }
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/elections/{{electionId}}"
           },
           "response": []
         }
@@ -1127,7 +1169,7 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "var requiredVariables = [\"electionId\",\"votingDistrictId\",\"voterSouthAfricanIdNumber\",\"voterToken\",\"registrationEndAt\"];",
+                  "var requiredVariables = [\"electionId\",\"votingDistrictId\",\"voterSouthAfricanIdNumber\",\"voterToken\",\"registrationStartAt\",\"registrationEndAt\"];",
                   "var unresolvedStart = String.fromCharCode(123, 123);",
                   "var unresolvedEnd = String.fromCharCode(125, 125);",
                   "var missingVariables = requiredVariables.filter((key) => {",
@@ -1137,8 +1179,13 @@
                   "if (missingVariables.length > 0) {",
                   "  throw new Error(`Missing Postman environment value(s): ${missingVariables.join(', ')}.`);",
                   "}",
+                  "const registrationStartAt = Date.parse(pm.environment.get('registrationStartAt'));",
                   "const registrationEndAt = Date.parse(pm.environment.get('registrationEndAt'));",
+                  "const secondsUntilStart = Math.ceil((registrationStartAt - Date.now()) / 1000);",
                   "const secondsRemaining = Math.ceil((registrationEndAt - Date.now()) / 1000);",
+                  "if (secondsUntilStart > 0) {",
+                  "  throw new Error(`Registration has not opened yet. Wait ${secondsUntilStart} second(s), then rerun this request.`);",
+                  "}",
                   "if (secondsRemaining <= 0) {",
                   "  throw new Error('Registration window expired for this demo election. Run Reset Verified Demo Data and recreate the election, or increase registrationGraceSeconds before Create Election.');",
                   "}"
@@ -1244,126 +1291,6 @@
       "name": "05 - Voting",
       "item": [
         {
-          "name": "Transition Election to REGISTRATION_CLOSED",
-          "event": [
-            {
-              "listen": "prerequest",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "var requiredVariables = [\"adminToken\",\"electionId\"];",
-                  "var unresolvedStart = String.fromCharCode(123, 123);",
-                  "var unresolvedEnd = String.fromCharCode(125, 125);",
-                  "var missingVariables = requiredVariables.filter((key) => {",
-                  "  const value = pm.environment.get(key);",
-                  "  return !value || value.includes(unresolvedStart) || value.includes(unresolvedEnd);",
-                  "});",
-                  "if (missingVariables.length > 0) {",
-                  "  throw new Error(`Missing Postman environment value(s): ${missingVariables.join(', ')}.`);",
-                  "}"
-                ]
-              }
-            },
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Election transitioned to REGISTRATION_CLOSED', function () {",
-                  "  pm.response.to.have.status(200);",
-                  "});",
-                  "if (pm.response.code !== 200) {",
-                  "  throw new Error(`Election transitioned to REGISTRATION_CLOSED failed (${pm.response.code}): ${pm.response.text()}`);",
-                  "}",
-                  "const json = pm.response.json();",
-                  "pm.test('Status is REGISTRATION_CLOSED', function () {",
-                  "  pm.expect(json.status).to.equal('REGISTRATION_CLOSED');",
-                  "});"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "PATCH",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              },
-              {
-                "key": "Authorization",
-                "value": "Bearer {{adminToken}}"
-              }
-            ],
-            "url": "{{baseUrl}}/api/v1/admin/elections/{{electionId}}/status",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"status\": \"REGISTRATION_CLOSED\"\n}"
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Transition Contest to OPEN",
-          "event": [
-            {
-              "listen": "prerequest",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "var requiredVariables = [\"adminToken\",\"electionId\",\"contestId\"];",
-                  "var unresolvedStart = String.fromCharCode(123, 123);",
-                  "var unresolvedEnd = String.fromCharCode(125, 125);",
-                  "var missingVariables = requiredVariables.filter((key) => {",
-                  "  const value = pm.environment.get(key);",
-                  "  return !value || value.includes(unresolvedStart) || value.includes(unresolvedEnd);",
-                  "});",
-                  "if (missingVariables.length > 0) {",
-                  "  throw new Error(`Missing Postman environment value(s): ${missingVariables.join(', ')}.`);",
-                  "}"
-                ]
-              }
-            },
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Contest transitioned to OPEN', function () {",
-                  "  pm.response.to.have.status(200);",
-                  "});",
-                  "if (pm.response.code !== 200) {",
-                  "  throw new Error(`Contest transitioned to OPEN failed (${pm.response.code}): ${pm.response.text()}`);",
-                  "}",
-                  "const json = pm.response.json();",
-                  "pm.test('Status is OPEN', function () {",
-                  "  pm.expect(json.status).to.equal('OPEN');",
-                  "});"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "PATCH",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              },
-              {
-                "key": "Authorization",
-                "value": "Bearer {{adminToken}}"
-              }
-            ],
-            "url": "{{baseUrl}}/api/v1/admin/elections/{{electionId}}/contests/{{contestId}}/status",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"status\": \"OPEN\"\n}"
-            }
-          },
-          "response": []
-        },
-        {
           "name": "Timing Check - Voting Window Open",
           "event": [
             {
@@ -1412,14 +1339,14 @@
           "response": []
         },
         {
-          "name": "Transition Election to VOTING_OPEN",
+          "name": "Confirm Election Is VOTING_OPEN",
           "event": [
             {
               "listen": "prerequest",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "var requiredVariables = [\"adminToken\",\"electionId\"];",
+                  "var requiredVariables = [\"electionId\"];",
                   "var unresolvedStart = String.fromCharCode(123, 123);",
                   "var unresolvedEnd = String.fromCharCode(125, 125);",
                   "var missingVariables = requiredVariables.filter((key) => {",
@@ -1437,37 +1364,73 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Election transitioned to VOTING_OPEN', function () {",
+                  "pm.test('Election status is available', function () {",
                   "  pm.response.to.have.status(200);",
                   "});",
                   "if (pm.response.code !== 200) {",
-                  "  throw new Error(`Election transitioned to VOTING_OPEN failed (${pm.response.code}): ${pm.response.text()}`);",
+                  "  throw new Error(`Election status is available failed (${pm.response.code}): ${pm.response.text()}`);",
                   "}",
                   "const json = pm.response.json();",
                   "pm.test('Status is VOTING_OPEN', function () {",
                   "  pm.expect(json.status).to.equal('VOTING_OPEN');",
-                  "});"
+                  "});",
+                  "if (json.status !== 'VOTING_OPEN') { throw new Error('The scheduler has not reached VOTING_OPEN yet. Wait a few seconds and rerun this request.'); }"
                 ]
               }
             }
           ],
           "request": {
-            "method": "PATCH",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              },
-              {
-                "key": "Authorization",
-                "value": "Bearer {{adminToken}}"
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/elections/{{electionId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Confirm Contest Is OPEN",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var requiredVariables = [\"electionId\",\"contestId\"];",
+                  "var unresolvedStart = String.fromCharCode(123, 123);",
+                  "var unresolvedEnd = String.fromCharCode(125, 125);",
+                  "var missingVariables = requiredVariables.filter((key) => {",
+                  "  const value = pm.environment.get(key);",
+                  "  return !value || value.includes(unresolvedStart) || value.includes(unresolvedEnd);",
+                  "});",
+                  "if (missingVariables.length > 0) {",
+                  "  throw new Error(`Missing Postman environment value(s): ${missingVariables.join(', ')}.`);",
+                  "}"
+                ]
               }
-            ],
-            "url": "{{baseUrl}}/api/v1/admin/elections/{{electionId}}/status",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"status\": \"VOTING_OPEN\"\n}"
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Contest list is available', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "if (pm.response.code !== 200) {",
+                  "  throw new Error(`Contest list is available failed (${pm.response.code}): ${pm.response.text()}`);",
+                  "}",
+                  "const contests = pm.response.json();",
+                  "const contest = contests.find((item) => item.id === pm.environment.get('contestId'));",
+                  "if (!contest) { throw new Error('Configured contest was not returned by the API.'); }",
+                  "pm.test('Contest status is OPEN', function () { pm.expect(contest.status).to.equal('OPEN'); });",
+                  "if (contest.status !== 'OPEN') { throw new Error('The scheduler has not moved the contest to OPEN yet. Wait a few seconds and rerun this request.'); }"
+                ]
+              }
             }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/elections/{{electionId}}/contests"
           },
           "response": []
         },
@@ -1659,89 +1622,14 @@
           "response": []
         },
         {
-          "name": "Transition Contest to CLOSED",
+          "name": "Confirm Election Is COMPLETED",
           "event": [
             {
               "listen": "prerequest",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "var requiredVariables = [\"adminToken\",\"electionId\",\"contestId\"];",
-                  "var unresolvedStart = String.fromCharCode(123, 123);",
-                  "var unresolvedEnd = String.fromCharCode(125, 125);",
-                  "var missingVariables = requiredVariables.filter((key) => {",
-                  "  const value = pm.environment.get(key);",
-                  "  return !value || value.includes(unresolvedStart) || value.includes(unresolvedEnd);",
-                  "});",
-                  "if (missingVariables.length > 0) {",
-                  "  throw new Error(`Missing Postman environment value(s): ${missingVariables.join(', ')}.`);",
-                  "}",
-                  "var requiredVariables = [\"votingEndAt\"];",
-                  "var unresolvedStart = String.fromCharCode(123, 123);",
-                  "var unresolvedEnd = String.fromCharCode(125, 125);",
-                  "var missingVariables = requiredVariables.filter((key) => {",
-                  "  const value = pm.environment.get(key);",
-                  "  return !value || value.includes(unresolvedStart) || value.includes(unresolvedEnd);",
-                  "});",
-                  "if (missingVariables.length > 0) {",
-                  "  throw new Error(`Missing Postman environment value(s): ${missingVariables.join(', ')}.`);",
-                  "}",
-                  "const votingEndAt = Date.parse(pm.environment.get('votingEndAt'));",
-                  "const secondsRemaining = Math.ceil((votingEndAt - Date.now()) / 1000);",
-                  "if (secondsRemaining > 0) {",
-                  "  throw new Error(`Voting window is not closed yet. Wait ${secondsRemaining} second(s), then rerun this request.`);",
-                  "}"
-                ]
-              }
-            },
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Contest transitioned to CLOSED', function () {",
-                  "  pm.response.to.have.status(200);",
-                  "});",
-                  "if (pm.response.code !== 200) {",
-                  "  throw new Error(`Contest transitioned to CLOSED failed (${pm.response.code}): ${pm.response.text()}`);",
-                  "}",
-                  "const json = pm.response.json();",
-                  "pm.test('Status is CLOSED', function () {",
-                  "  pm.expect(json.status).to.equal('CLOSED');",
-                  "});"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "PATCH",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              },
-              {
-                "key": "Authorization",
-                "value": "Bearer {{adminToken}}"
-              }
-            ],
-            "url": "{{baseUrl}}/api/v1/admin/elections/{{electionId}}/contests/{{contestId}}/status",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"status\": \"CLOSED\"\n}"
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Transition Election to COMPLETED",
-          "event": [
-            {
-              "listen": "prerequest",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "var requiredVariables = [\"adminToken\",\"electionId\"];",
+                  "var requiredVariables = [\"electionId\"];",
                   "var unresolvedStart = String.fromCharCode(123, 123);",
                   "var unresolvedEnd = String.fromCharCode(125, 125);",
                   "var missingVariables = requiredVariables.filter((key) => {",
@@ -1759,37 +1647,73 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Election transitioned to COMPLETED', function () {",
+                  "pm.test('Election status is available', function () {",
                   "  pm.response.to.have.status(200);",
                   "});",
                   "if (pm.response.code !== 200) {",
-                  "  throw new Error(`Election transitioned to COMPLETED failed (${pm.response.code}): ${pm.response.text()}`);",
+                  "  throw new Error(`Election status is available failed (${pm.response.code}): ${pm.response.text()}`);",
                   "}",
                   "const json = pm.response.json();",
                   "pm.test('Status is COMPLETED', function () {",
                   "  pm.expect(json.status).to.equal('COMPLETED');",
-                  "});"
+                  "});",
+                  "if (json.status !== 'COMPLETED') { throw new Error('The scheduler has not reached COMPLETED yet. Wait a few seconds and rerun this request.'); }"
                 ]
               }
             }
           ],
           "request": {
-            "method": "PATCH",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              },
-              {
-                "key": "Authorization",
-                "value": "Bearer {{adminToken}}"
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/elections/{{electionId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Confirm Contest Is CLOSED",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var requiredVariables = [\"electionId\",\"contestId\"];",
+                  "var unresolvedStart = String.fromCharCode(123, 123);",
+                  "var unresolvedEnd = String.fromCharCode(125, 125);",
+                  "var missingVariables = requiredVariables.filter((key) => {",
+                  "  const value = pm.environment.get(key);",
+                  "  return !value || value.includes(unresolvedStart) || value.includes(unresolvedEnd);",
+                  "});",
+                  "if (missingVariables.length > 0) {",
+                  "  throw new Error(`Missing Postman environment value(s): ${missingVariables.join(', ')}.`);",
+                  "}"
+                ]
               }
-            ],
-            "url": "{{baseUrl}}/api/v1/admin/elections/{{electionId}}/status",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"status\": \"COMPLETED\"\n}"
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Contest list is available', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "if (pm.response.code !== 200) {",
+                  "  throw new Error(`Contest list is available failed (${pm.response.code}): ${pm.response.text()}`);",
+                  "}",
+                  "const contests = pm.response.json();",
+                  "const contest = contests.find((item) => item.id === pm.environment.get('contestId'));",
+                  "if (!contest) { throw new Error('Configured contest was not returned by the API.'); }",
+                  "pm.test('Contest status is CLOSED', function () { pm.expect(contest.status).to.equal('CLOSED'); });",
+                  "if (contest.status !== 'CLOSED') { throw new Error('The scheduler has not moved the contest to CLOSED yet. Wait a few seconds and rerun this request.'); }"
+                ]
+              }
             }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/elections/{{electionId}}/contests"
           },
           "response": []
         },
@@ -1985,6 +1909,55 @@
               }
             ],
             "url": "{{baseUrl}}/api/v1/admin/security-audit-events?limit=25"
+          },
+          "response": []
+        },
+        {
+          "name": "Admin Election Lifecycle Events",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var requiredVariables = [\"adminToken\",\"electionId\"];",
+                  "var unresolvedStart = String.fromCharCode(123, 123);",
+                  "var unresolvedEnd = String.fromCharCode(125, 125);",
+                  "var missingVariables = requiredVariables.filter((key) => {",
+                  "  const value = pm.environment.get(key);",
+                  "  return !value || value.includes(unresolvedStart) || value.includes(unresolvedEnd);",
+                  "});",
+                  "if (missingVariables.length > 0) {",
+                  "  throw new Error(`Missing Postman environment value(s): ${missingVariables.join(', ')}.`);",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Election lifecycle audit events are returned', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "if (pm.response.code !== 200) {",
+                  "  throw new Error(`Election lifecycle audit events are returned failed (${pm.response.code}): ${pm.response.text()}`);",
+                  "}",
+                  "pm.test('Automatic lifecycle is fully audited', function () { const events = pm.response.json(); pm.expect(events.length).to.be.at.least(4); pm.expect(events.every((item) => item.trigger === 'AUTOMATIC')).to.equal(true); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/elections/{{electionId}}/lifecycle-events"
           },
           "response": []
         }

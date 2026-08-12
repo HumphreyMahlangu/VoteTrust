@@ -4,6 +4,8 @@ const path = require('path');
 const outDir = __dirname;
 const collectionPath = path.join(outDir, 'VoteTrust.verified.postman_collection.json');
 const environmentPath = path.join(outDir, 'VoteTrust.verified-local.postman_environment.json');
+const compatibilityCollectionPath = path.join(outDir, 'VoteTrust.postman_collection.json');
+const compatibilityEnvironmentPath = path.join(outDir, 'VoteTrust.local.postman_environment.json');
 
 function event(listen, exec) {
   return { listen, script: { type: 'text/javascript', exec } };
@@ -160,10 +162,11 @@ function freshElectionScript() {
     "pm.environment.set('electionName', `VoteTrust Verified Election ${suffix}`);",
     "pm.environment.set('contestName', `Ward 12 Councillor ${suffix}`);",
     "['electionId', 'contestId', 'optionAId', 'optionBId', 'blankOptionId', 'spoiltOptionId', 'registrationId', 'votingCredential'].forEach((key) => pm.environment.unset(key));",
+    "const configurationGraceSeconds = Math.max(30, Number(pm.environment.get('configurationGraceSeconds') || 120));",
     "const registrationGraceSeconds = Math.max(30, Number(pm.environment.get('registrationGraceSeconds') || 180));",
     "const votingDurationSeconds = Math.max(30, Number(pm.environment.get('votingDurationSeconds') || 90));",
-    'const registrationStartAt = new Date(now - 60000);',
-    'const registrationEndAt = new Date(now + registrationGraceSeconds * 1000);',
+    'const registrationStartAt = new Date(now + configurationGraceSeconds * 1000);',
+    'const registrationEndAt = new Date(registrationStartAt.getTime() + registrationGraceSeconds * 1000);',
     'const votingStartAt = new Date(registrationEndAt.getTime() + 5000);',
     'const votingEndAt = new Date(votingStartAt.getTime() + votingDurationSeconds * 1000);',
     "pm.environment.set('registrationStartAt', registrationStartAt.toISOString());",
@@ -175,9 +178,14 @@ function freshElectionScript() {
 
 function registrationStillOpenGuard() {
   return [
-    ...requireVars(['electionId', 'votingDistrictId', 'voterSouthAfricanIdNumber', 'voterToken', 'registrationEndAt']),
+    ...requireVars(['electionId', 'votingDistrictId', 'voterSouthAfricanIdNumber', 'voterToken', 'registrationStartAt', 'registrationEndAt']),
+    "const registrationStartAt = Date.parse(pm.environment.get('registrationStartAt'));",
     "const registrationEndAt = Date.parse(pm.environment.get('registrationEndAt'));",
+    'const secondsUntilStart = Math.ceil((registrationStartAt - Date.now()) / 1000);',
     'const secondsRemaining = Math.ceil((registrationEndAt - Date.now()) / 1000);',
+    'if (secondsUntilStart > 0) {',
+    "  throw new Error(`Registration has not opened yet. Wait ${secondsUntilStart} second(s), then rerun this request.`);",
+    '}',
     'if (secondsRemaining <= 0) {',
     "  throw new Error('Registration window expired for this demo election. Run Reset Verified Demo Data and recreate the election, or increase registrationGraceSeconds before Create Election.');",
     '}'
@@ -206,13 +214,25 @@ function votingClosedGuard() {
   ];
 }
 
-function statusTransitionTests(expectedStatus, label) {
+function electionStatusTests(expectedStatus, label) {
   return [
     ...expectStatus(200, label),
     'const json = pm.response.json();',
     `pm.test('Status is ${expectedStatus}', function () {`,
     `  pm.expect(json.status).to.equal('${expectedStatus}');`,
-    '});'
+    '});',
+    `if (json.status !== '${expectedStatus}') { throw new Error('The scheduler has not reached ${expectedStatus} yet. Wait a few seconds and rerun this request.'); }`
+  ];
+}
+
+function contestStatusTests(expectedStatus, label) {
+  return [
+    ...expectStatus(200, label),
+    'const contests = pm.response.json();',
+    "const contest = contests.find((item) => item.id === pm.environment.get('contestId'));",
+    "if (!contest) { throw new Error('Configured contest was not returned by the API.'); }",
+    `pm.test('Contest status is ${expectedStatus}', function () { pm.expect(contest.status).to.equal('${expectedStatus}'); });`,
+    `if (contest.status !== '${expectedStatus}') { throw new Error('The scheduler has not moved the contest to ${expectedStatus} yet. Wait a few seconds and rerun this request.'); }`
   ];
 }
 
@@ -367,13 +387,18 @@ const collection = {
           test: [...expectStatus(201, 'Spoilt ballot option is created'), ...storeId('spoiltOptionId', 'Create Spoilt Ballot Option')]
         }),
         request({
-          name: 'Transition Election to REGISTRATION_OPEN',
-          method: 'PATCH',
-          url: '{{baseUrl}}/api/v1/admin/elections/{{electionId}}/status',
-          header: adminJsonHeaders,
-          body: jsonBody({ status: 'REGISTRATION_OPEN' }),
-          prerequest: requireVars(['adminToken', 'electionId']),
-          test: statusTransitionTests('REGISTRATION_OPEN', 'Election transitioned to REGISTRATION_OPEN')
+          name: 'Timing Check - Registration Window Open',
+          method: 'GET',
+          url: '{{baseUrl}}/actuator/health',
+          prerequest: registrationStillOpenGuard(),
+          test: expectStatus(200, 'Registration start time has arrived')
+        }),
+        request({
+          name: 'Confirm Election Is REGISTRATION_OPEN',
+          method: 'GET',
+          url: '{{baseUrl}}/api/v1/elections/{{electionId}}',
+          prerequest: requireVars(['electionId']),
+          test: electionStatusTests('REGISTRATION_OPEN', 'Election status is available')
         })
       ]
     },
@@ -462,33 +487,20 @@ const collection = {
     {
       name: '05 - Voting',
       item: [
-        request({
-          name: 'Transition Election to REGISTRATION_CLOSED',
-          method: 'PATCH',
-          url: '{{baseUrl}}/api/v1/admin/elections/{{electionId}}/status',
-          header: adminJsonHeaders,
-          body: jsonBody({ status: 'REGISTRATION_CLOSED' }),
-          prerequest: requireVars(['adminToken', 'electionId']),
-          test: statusTransitionTests('REGISTRATION_CLOSED', 'Election transitioned to REGISTRATION_CLOSED')
-        }),
-        request({
-          name: 'Transition Contest to OPEN',
-          method: 'PATCH',
-          url: '{{baseUrl}}/api/v1/admin/elections/{{electionId}}/contests/{{contestId}}/status',
-          header: adminJsonHeaders,
-          body: jsonBody({ status: 'OPEN' }),
-          prerequest: requireVars(['adminToken', 'electionId', 'contestId']),
-          test: statusTransitionTests('OPEN', 'Contest transitioned to OPEN')
-        }),
         request({ name: 'Timing Check - Voting Window Open', method: 'GET', url: '{{baseUrl}}/actuator/health', prerequest: votingOpenGuard(), test: expectStatus(200, 'Voting window is open') }),
         request({
-          name: 'Transition Election to VOTING_OPEN',
-          method: 'PATCH',
-          url: '{{baseUrl}}/api/v1/admin/elections/{{electionId}}/status',
-          header: adminJsonHeaders,
-          body: jsonBody({ status: 'VOTING_OPEN' }),
-          prerequest: requireVars(['adminToken', 'electionId']),
-          test: statusTransitionTests('VOTING_OPEN', 'Election transitioned to VOTING_OPEN')
+          name: 'Confirm Election Is VOTING_OPEN',
+          method: 'GET',
+          url: '{{baseUrl}}/api/v1/elections/{{electionId}}',
+          prerequest: requireVars(['electionId']),
+          test: electionStatusTests('VOTING_OPEN', 'Election status is available')
+        }),
+        request({
+          name: 'Confirm Contest Is OPEN',
+          method: 'GET',
+          url: '{{baseUrl}}/api/v1/elections/{{electionId}}/contests',
+          prerequest: requireVars(['electionId', 'contestId']),
+          test: contestStatusTests('OPEN', 'Contest list is available')
         }),
         request({
           name: 'Issue Voting Credential',
@@ -522,22 +534,18 @@ const collection = {
       item: [
         request({ name: 'Timing Check - Voting Window Closed', method: 'GET', url: '{{baseUrl}}/actuator/health', prerequest: votingClosedGuard(), test: expectStatus(200, 'Voting window is closed') }),
         request({
-          name: 'Transition Contest to CLOSED',
-          method: 'PATCH',
-          url: '{{baseUrl}}/api/v1/admin/elections/{{electionId}}/contests/{{contestId}}/status',
-          header: adminJsonHeaders,
-          body: jsonBody({ status: 'CLOSED' }),
-          prerequest: [...requireVars(['adminToken', 'electionId', 'contestId']), ...votingClosedGuard()],
-          test: statusTransitionTests('CLOSED', 'Contest transitioned to CLOSED')
+          name: 'Confirm Election Is COMPLETED',
+          method: 'GET',
+          url: '{{baseUrl}}/api/v1/elections/{{electionId}}',
+          prerequest: requireVars(['electionId']),
+          test: electionStatusTests('COMPLETED', 'Election status is available')
         }),
         request({
-          name: 'Transition Election to COMPLETED',
-          method: 'PATCH',
-          url: '{{baseUrl}}/api/v1/admin/elections/{{electionId}}/status',
-          header: adminJsonHeaders,
-          body: jsonBody({ status: 'COMPLETED' }),
-          prerequest: requireVars(['adminToken', 'electionId']),
-          test: statusTransitionTests('COMPLETED', 'Election transitioned to COMPLETED')
+          name: 'Confirm Contest Is CLOSED',
+          method: 'GET',
+          url: '{{baseUrl}}/api/v1/elections/{{electionId}}/contests',
+          prerequest: requireVars(['electionId', 'contestId']),
+          test: contestStatusTests('CLOSED', 'Contest list is available')
         }),
         request({
           name: 'Get Final Results',
@@ -576,6 +584,17 @@ const collection = {
           header: adminAuthHeader,
           prerequest: requireVars(['adminToken']),
           test: expectStatus(200, 'Admin security audit events are returned')
+        }),
+        request({
+          name: 'Admin Election Lifecycle Events',
+          method: 'GET',
+          url: '{{baseUrl}}/api/v1/admin/elections/{{electionId}}/lifecycle-events',
+          header: adminAuthHeader,
+          prerequest: requireVars(['adminToken', 'electionId']),
+          test: [
+            ...expectStatus(200, 'Election lifecycle audit events are returned'),
+            "pm.test('Automatic lifecycle is fully audited', function () { const events = pm.response.json(); pm.expect(events.length).to.be.at.least(4); pm.expect(events.every((item) => item.trigger === 'AUTOMATIC')).to.equal(true); });"
+          ]
         })
       ]
     },
@@ -631,6 +650,7 @@ const environment = {
     { key: 'adminEmail', value: 'admin@votetrust.local', type: 'default', enabled: true },
     { key: 'adminPassword', value: 'VeryStrongPassword1', type: 'secret', enabled: true },
     { key: 'voterPassword', value: 'VeryStrongPassword1', type: 'secret', enabled: true },
+    { key: 'configurationGraceSeconds', value: '120', type: 'default', enabled: true },
     { key: 'registrationGraceSeconds', value: '180', type: 'default', enabled: true },
     { key: 'votingDurationSeconds', value: '90', type: 'default', enabled: true },
     { key: 'province', value: 'Western Cape', type: 'default', enabled: true },
@@ -668,5 +688,13 @@ const environment = {
 
 fs.writeFileSync(collectionPath, JSON.stringify(collection, null, 2) + '\n');
 fs.writeFileSync(environmentPath, JSON.stringify(environment, null, 2) + '\n');
+const compatibilityCollection = structuredClone(collection);
+compatibilityCollection.info.name = 'VoteTrust API';
+const compatibilityEnvironment = structuredClone(environment);
+compatibilityEnvironment.name = 'VoteTrust Local';
+fs.writeFileSync(compatibilityCollectionPath, JSON.stringify(compatibilityCollection, null, 2) + '\n');
+fs.writeFileSync(compatibilityEnvironmentPath, JSON.stringify(compatibilityEnvironment, null, 2) + '\n');
 console.log(`Wrote ${collectionPath}`);
 console.log(`Wrote ${environmentPath}`);
+console.log(`Wrote ${compatibilityCollectionPath}`);
+console.log(`Wrote ${compatibilityEnvironmentPath}`);

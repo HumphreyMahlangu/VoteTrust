@@ -1,16 +1,16 @@
 {
   "info": {
-    "_postman_id": "2e26a746-24e2-4f95-8e6f-2fd8b89c9e5a",
+    "_postman_id": "76d91d2d-6f35-4fd5-84f1-2bf843d097d8",
     "name": "VoteTrust API",
-    "description": "End-to-end Postman collection for the VoteTrust secure voting API. Import with the VoteTrust Local environment and follow the folder order for a demo run.",
+    "description": "Clean verified collection for local Postman testing of the VoteTrust secure voting API. Import with the VoteTrust Verified Local environment and run folders in order.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
     {
-      "name": "00 - Health and Demo Setup",
+      "name": "00 - Start Here",
       "item": [
         {
-          "name": "Initialize Demo Variables",
+          "name": "Reset Verified Demo Data",
           "event": [
             {
               "listen": "prerequest",
@@ -19,14 +19,15 @@
                 "exec": [
                   "const now = new Date();",
                   "const stamp = now.toISOString().replace(/[-:.TZ]/g, '');",
-                  "const uniqueSuffix = `${stamp.slice(8)}${Math.random().toString(36).slice(2, 6)}`;",
-                  "pm.environment.set('demoRunId', uniqueSuffix);",
-                  "pm.environment.set('voterEmail', `voter+${uniqueSuffix}@example.com`);",
-                  "pm.environment.set('districtCode', `WC-${uniqueSuffix.slice(-12)}`);",
-                  "pm.environment.set('districtName', `Cape Town Demo Ward ${uniqueSuffix.slice(-4)}`);",
-                  "pm.environment.set('electionName', `VoteTrust Demo Election ${uniqueSuffix}`);",
-                  "pm.environment.set('contestName', `Ward 12 Councillor ${uniqueSuffix}`);",
-                  "['votingDistrictId', 'electionId', 'contestId', 'optionAId', 'optionBId', 'blankOptionId', 'spoiltOptionId', 'registrationId', 'voterToken', 'voterUserId', 'votingCredential'].forEach((key) => pm.environment.unset(key));",
+                  "const random = Math.random().toString(36).slice(2, 8);",
+                  "const runId = `${stamp.slice(2)}${random}`;",
+                  "pm.environment.set('runId', runId);",
+                  "pm.environment.set('voterEmail', `voter+${runId}@example.com`);",
+                  "pm.environment.set('districtCode', `WC-${runId.slice(-12)}`);",
+                  "pm.environment.set('districtName', `Cape Town Demo Ward ${runId.slice(-4)}`);",
+                  "pm.environment.set('electionName', `VoteTrust Verified Election ${runId}`);",
+                  "pm.environment.set('contestName', `Ward 12 Councillor ${runId}`);",
+                  "['adminToken', 'adminUserId', 'voterToken', 'voterUserId', 'votingDistrictId', 'electionId', 'contestId', 'optionAId', 'optionBId', 'blankOptionId', 'spoiltOptionId', 'registrationId', 'votingCredential', 'registrationStartAt', 'registrationEndAt', 'votingStartAt', 'votingEndAt'].forEach((key) => pm.environment.unset(key));",
                   "",
                   "function southAfricanCheckDigit(first12) {",
                   "  let oddPositionSum = 0;",
@@ -43,7 +44,7 @@
                   "  return (10 - ((oddPositionSum + doubledEvenDigitSum) % 10)) % 10;",
                   "}",
                   "",
-                  "const sequence = String(Date.now() % 10000).padStart(4, '0');",
+                  "const sequence = String(Math.floor(Math.random() * 10000)).padStart(4, '0');",
                   "const first12 = `900101${sequence}08`;",
                   "pm.environment.set('voterSouthAfricanIdNumber', `${first12}${southAfricanCheckDigit(first12)}`);"
                 ]
@@ -54,12 +55,16 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('API is reachable', function () {",
+                  "pm.test('API health endpoint is reachable', function () {",
                   "  pm.response.to.have.status(200);",
                   "});",
-                  "pm.test('Demo variables were generated', function () {",
-                  "  pm.expect(pm.environment.get('demoRunId')).to.not.be.empty;",
-                  "  pm.expect(pm.environment.get('voterSouthAfricanIdNumber')).to.have.length(13);",
+                  "if (pm.response.code !== 200) {",
+                  "  throw new Error(`API health endpoint is reachable failed (${pm.response.code}): ${pm.response.text()}`);",
+                  "}",
+                  "pm.test('Verified demo variables were generated', function () {",
+                  "  pm.expect(pm.environment.get('runId')).to.not.be.empty;",
+                  "  pm.expect(pm.environment.get('voterEmail')).to.include('@example.com');",
+                  "  pm.expect(pm.environment.get('voterSouthAfricanIdNumber')).to.match(/^\\d{13}$/);",
                   "});"
                 ]
               }
@@ -69,12 +74,28 @@
             "method": "GET",
             "header": [],
             "url": "{{baseUrl}}/actuator/health",
-            "description": "Run this first. It generates unique demo data for the current Postman run."
+            "description": "Run this first. It clears stale demo IDs and generates a unique voter, election, district, and valid South African ID number."
           },
           "response": []
         },
         {
           "name": "Health",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('API health is UP', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "if (pm.response.code !== 200) {",
+                  "  throw new Error(`API health is UP failed (${pm.response.code}): ${pm.response.text()}`);",
+                  "}"
+                ]
+              }
+            }
+          ],
           "request": {
             "method": "GET",
             "header": [],
@@ -83,16 +104,24 @@
           "response": []
         },
         {
-          "name": "Readiness",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": "{{baseUrl}}/actuator/health/readiness"
-          },
-          "response": []
-        },
-        {
           "name": "OpenAPI JSON",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('OpenAPI JSON is available', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "if (pm.response.code !== 200) {",
+                  "  throw new Error(`OpenAPI JSON is available failed (${pm.response.code}): ${pm.response.text()}`);",
+                  "}",
+                  "pm.test('OpenAPI title is VoteTrust API', function () { pm.expect(pm.response.json().info.title).to.equal('VoteTrust API'); });"
+                ]
+              }
+            }
+          ],
           "request": {
             "method": "GET",
             "header": [],
@@ -106,20 +135,45 @@
       "name": "01 - Admin Auth",
       "item": [
         {
-          "name": "Bootstrap First Admin",
+          "name": "Bootstrap First Admin - Optional",
           "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var requiredVariables = [\"adminBootstrapToken\",\"adminEmail\",\"adminPassword\"];",
+                  "var unresolvedStart = String.fromCharCode(123, 123);",
+                  "var unresolvedEnd = String.fromCharCode(125, 125);",
+                  "var missingVariables = requiredVariables.filter((key) => {",
+                  "  const value = pm.environment.get(key);",
+                  "  return !value || value.includes(unresolvedStart) || value.includes(unresolvedEnd);",
+                  "});",
+                  "if (missingVariables.length > 0) {",
+                  "  throw new Error(`Missing Postman environment value(s): ${missingVariables.join(', ')}.`);",
+                  "}"
+                ]
+              }
+            },
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Admin created or bootstrap already used', function () {",
-                  "  pm.expect([201, 409]).to.include(pm.response.code);",
+                  "const allowedStatuses = [201,409];",
+                  "pm.test('Admin bootstrap created the first admin or was already used', function () {",
+                  "  pm.expect(allowedStatuses).to.include(pm.response.code);",
                   "});",
+                  "if (!allowedStatuses.includes(pm.response.code)) {",
+                  "  throw new Error(`Admin bootstrap created the first admin or was already used failed (${pm.response.code}): ${pm.response.text()}`);",
+                  "}",
                   "if (pm.response.code === 201) {",
                   "  const json = pm.response.json();",
+                  "  if (!json.accessToken) { throw new Error('Admin bootstrap response did not include accessToken.'); }",
                   "  pm.environment.set('adminToken', json.accessToken);",
                   "  pm.environment.set('adminUserId', json.userId);",
+                  "} else {",
+                  "  console.warn('Bootstrap already used. Continue with Login Admin.');",
                   "}"
                 ]
               }
@@ -137,12 +191,12 @@
                 "value": "{{adminBootstrapToken}}"
               }
             ],
+            "url": "{{baseUrl}}/api/v1/admin/bootstrap",
+            "description": "Run on a fresh database. If it returns 409, continue with Login Admin.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"{{adminPassword}}\"\n}"
-            },
-            "url": "{{baseUrl}}/api/v1/admin/bootstrap",
-            "description": "Run once when the database is new and VOTETRUST_ADMIN_BOOTSTRAP_ENABLED=true. If this returns 409, run Login Admin."
+            }
           },
           "response": []
         },
@@ -150,16 +204,39 @@
           "name": "Login Admin",
           "event": [
             {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var requiredVariables = [\"adminEmail\",\"adminPassword\"];",
+                  "var unresolvedStart = String.fromCharCode(123, 123);",
+                  "var unresolvedEnd = String.fromCharCode(125, 125);",
+                  "var missingVariables = requiredVariables.filter((key) => {",
+                  "  const value = pm.environment.get(key);",
+                  "  return !value || value.includes(unresolvedStart) || value.includes(unresolvedEnd);",
+                  "});",
+                  "if (missingVariables.length > 0) {",
+                  "  throw new Error(`Missing Postman environment value(s): ${missingVariables.join(', ')}.`);",
+                  "}"
+                ]
+              }
+            },
+            {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Admin login succeeded', function () {",
+                  "pm.test('Admin login succeeds', function () {",
                   "  pm.response.to.have.status(200);",
                   "});",
+                  "if (pm.response.code !== 200) {",
+                  "  throw new Error(`Admin login succeeds failed (${pm.response.code}): ${pm.response.text()}`);",
+                  "}",
                   "const json = pm.response.json();",
+                  "if (!json.accessToken) { throw new Error('Admin login response did not include accessToken.'); }",
                   "pm.environment.set('adminToken', json.accessToken);",
-                  "pm.environment.set('adminUserId', json.userId);"
+                  "pm.environment.set('adminUserId', json.userId);",
+                  "pm.test('Admin role returned', function () { pm.expect(pm.response.json().role).to.equal('ADMIN'); });"
                 ]
               }
             }
@@ -172,40 +249,109 @@
                 "value": "application/json"
               }
             ],
+            "url": "{{baseUrl}}/api/v1/auth/login",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"{{adminPassword}}\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Auth Me - Admin",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var requiredVariables = [\"adminToken\"];",
+                  "var unresolvedStart = String.fromCharCode(123, 123);",
+                  "var unresolvedEnd = String.fromCharCode(125, 125);",
+                  "var missingVariables = requiredVariables.filter((key) => {",
+                  "  const value = pm.environment.get(key);",
+                  "  return !value || value.includes(unresolvedStart) || value.includes(unresolvedEnd);",
+                  "});",
+                  "if (missingVariables.length > 0) {",
+                  "  throw new Error(`Missing Postman environment value(s): ${missingVariables.join(', ')}.`);",
+                  "}"
+                ]
+              }
             },
-            "url": "{{baseUrl}}/api/v1/auth/login"
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Authenticated admin profile is returned', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "if (pm.response.code !== 200) {",
+                  "  throw new Error(`Authenticated admin profile is returned failed (${pm.response.code}): ${pm.response.text()}`);",
+                  "}",
+                  "pm.test('Profile role is ADMIN', function () { pm.expect(pm.response.json().role).to.equal('ADMIN'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/auth/me"
           },
           "response": []
         }
       ]
     },
     {
-      "name": "02 - Admin Election Setup",
+      "name": "02 - Election Setup",
       "item": [
         {
           "name": "Create Voting District",
           "event": [
             {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var requiredVariables = [\"adminToken\"];",
+                  "var unresolvedStart = String.fromCharCode(123, 123);",
+                  "var unresolvedEnd = String.fromCharCode(125, 125);",
+                  "var missingVariables = requiredVariables.filter((key) => {",
+                  "  const value = pm.environment.get(key);",
+                  "  return !value || value.includes(unresolvedStart) || value.includes(unresolvedEnd);",
+                  "});",
+                  "if (missingVariables.length > 0) {",
+                  "  throw new Error(`Missing Postman environment value(s): ${missingVariables.join(', ')}.`);",
+                  "}",
+                  "const now = new Date();",
+                  "const stamp = now.toISOString().replace(/[-:.TZ]/g, '');",
+                  "const suffix = `${stamp.slice(8)}${Math.random().toString(36).slice(2, 6)}`;",
+                  "pm.environment.set('districtCode', `WC-${suffix.slice(-12)}`);",
+                  "pm.environment.set('districtName', `Cape Town Demo Ward ${suffix.slice(-4)}`);",
+                  "['votingDistrictId', 'electionId', 'contestId', 'optionAId', 'optionBId', 'blankOptionId', 'spoiltOptionId', 'registrationId', 'votingCredential'].forEach((key) => pm.environment.unset(key));"
+                ]
+              }
+            },
+            {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Voting district created', function () {",
+                  "pm.test('Voting district is created', function () {",
                   "  pm.response.to.have.status(201);",
                   "});",
                   "if (pm.response.code !== 201) {",
-                  "  pm.environment.unset('votingDistrictId');",
-                  "  throw new Error(`Create Voting District failed (${pm.response.code}): ${pm.response.text()}`);",
+                  "  throw new Error(`Voting district is created failed (${pm.response.code}): ${pm.response.text()}`);",
                   "}",
-                  "const votingDistrictId = pm.response.json().id;",
-                  "if (!votingDistrictId) {",
-                  "  pm.environment.unset('votingDistrictId');",
-                  "  throw new Error('Create Voting District did not return an id.');",
-                  "}",
-                  "pm.environment.set('votingDistrictId', votingDistrictId);"
+                  "const json = pm.response.json();",
+                  "if (!json.id) { throw new Error('Create Voting District response did not include id.'); }",
+                  "pm.environment.set('votingDistrictId', json.id);"
                 ]
               }
             }
@@ -222,11 +368,11 @@
                 "value": "Bearer {{adminToken}}"
               }
             ],
+            "url": "{{baseUrl}}/api/v1/admin/voting-districts",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"code\": \"{{districtCode}}\",\n  \"name\": \"{{districtName}}\",\n  \"province\": \"Western Cape\",\n  \"municipality\": \"City of Cape Town\",\n  \"wardNumber\": 12\n}"
-            },
-            "url": "{{baseUrl}}/api/v1/admin/voting-districts"
+              "raw": "{\n  \"code\": \"{{districtCode}}\",\n  \"name\": \"{{districtName}}\",\n  \"province\": \"{{province}}\",\n  \"municipality\": \"{{municipality}}\",\n  \"wardNumber\": {{wardNumber}}\n}"
+            }
           },
           "response": []
         },
@@ -238,18 +384,29 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
+                  "var requiredVariables = [\"adminToken\"];",
+                  "var unresolvedStart = String.fromCharCode(123, 123);",
+                  "var unresolvedEnd = String.fromCharCode(125, 125);",
+                  "var missingVariables = requiredVariables.filter((key) => {",
+                  "  const value = pm.environment.get(key);",
+                  "  return !value || value.includes(unresolvedStart) || value.includes(unresolvedEnd);",
+                  "});",
+                  "if (missingVariables.length > 0) {",
+                  "  throw new Error(`Missing Postman environment value(s): ${missingVariables.join(', ')}.`);",
+                  "}",
                   "const now = Date.now();",
-                  "const electionStamp = new Date().toISOString().replace(/[-:.TZ]/g, '');",
-                  "const electionSuffix = `${electionStamp.slice(8)}${Math.random().toString(36).slice(2, 6)}`;",
-                  "pm.environment.set('electionName', `VoteTrust Demo Election ${electionSuffix}`);",
-                  "pm.environment.set('contestName', `Ward 12 Councillor ${electionSuffix}`);",
+                  "const stamp = new Date().toISOString().replace(/[-:.TZ]/g, '');",
+                  "const suffix = `${stamp.slice(8)}${Math.random().toString(36).slice(2, 6)}`;",
+                  "pm.environment.set('electionName', `VoteTrust Verified Election ${suffix}`);",
+                  "pm.environment.set('contestName', `Ward 12 Councillor ${suffix}`);",
                   "['electionId', 'contestId', 'optionAId', 'optionBId', 'blankOptionId', 'spoiltOptionId', 'registrationId', 'votingCredential'].forEach((key) => pm.environment.unset(key));",
-                  "const registrationWindowMinutes = Math.max(1, Number(pm.environment.get('registrationWindowMinutes') || 30));",
-                  "const votingWindowMinutes = Math.max(1, Number(pm.environment.get('votingWindowMinutes') || 5));",
-                  "const registrationStartAt = new Date(now - 60000);",
-                  "const registrationEndAt = new Date(now + registrationWindowMinutes * 60000);",
-                  "const votingStartAt = new Date(registrationEndAt.getTime());",
-                  "const votingEndAt = new Date(votingStartAt.getTime() + votingWindowMinutes * 60000);",
+                  "const configurationGraceSeconds = Math.max(30, Number(pm.environment.get('configurationGraceSeconds') || 120));",
+                  "const registrationGraceSeconds = Math.max(30, Number(pm.environment.get('registrationGraceSeconds') || 180));",
+                  "const votingDurationSeconds = Math.max(30, Number(pm.environment.get('votingDurationSeconds') || 90));",
+                  "const registrationStartAt = new Date(now + configurationGraceSeconds * 1000);",
+                  "const registrationEndAt = new Date(registrationStartAt.getTime() + registrationGraceSeconds * 1000);",
+                  "const votingStartAt = new Date(registrationEndAt.getTime() + 5000);",
+                  "const votingEndAt = new Date(votingStartAt.getTime() + votingDurationSeconds * 1000);",
                   "pm.environment.set('registrationStartAt', registrationStartAt.toISOString());",
                   "pm.environment.set('registrationEndAt', registrationEndAt.toISOString());",
                   "pm.environment.set('votingStartAt', votingStartAt.toISOString());",
@@ -262,19 +419,15 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Election created', function () {",
+                  "pm.test('Election is created', function () {",
                   "  pm.response.to.have.status(201);",
                   "});",
                   "if (pm.response.code !== 201) {",
-                  "  pm.environment.unset('electionId');",
-                  "  throw new Error(`Create Election failed (${pm.response.code}): ${pm.response.text()}`);",
+                  "  throw new Error(`Election is created failed (${pm.response.code}): ${pm.response.text()}`);",
                   "}",
-                  "const electionId = pm.response.json().id;",
-                  "if (!electionId) {",
-                  "  pm.environment.unset('electionId');",
-                  "  throw new Error('Create Election did not return an id.');",
-                  "}",
-                  "pm.environment.set('electionId', electionId);"
+                  "const json = pm.response.json();",
+                  "if (!json.id) { throw new Error('Create Election response did not include id.'); }",
+                  "pm.environment.set('electionId', json.id);"
                 ]
               }
             }
@@ -291,27 +444,49 @@
                 "value": "Bearer {{adminToken}}"
               }
             ],
+            "url": "{{baseUrl}}/api/v1/admin/elections",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"name\": \"{{electionName}}\",\n  \"type\": \"MUNICIPAL\",\n  \"registrationStartAt\": \"{{registrationStartAt}}\",\n  \"registrationEndAt\": \"{{registrationEndAt}}\",\n  \"votingStartAt\": \"{{votingStartAt}}\",\n  \"votingEndAt\": \"{{votingEndAt}}\"\n}"
-            },
-            "url": "{{baseUrl}}/api/v1/admin/elections",
-            "description": "Creates a short demo election. Register the voter before registrationEndAt, then wait until votingStartAt before issuing a credential."
+            }
           },
           "response": []
         },
         {
-          "name": "Create Contest",
+          "name": "Create Municipal Ward Contest",
           "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var requiredVariables = [\"adminToken\",\"electionId\",\"contestName\",\"province\",\"municipality\",\"wardNumber\"];",
+                  "var unresolvedStart = String.fromCharCode(123, 123);",
+                  "var unresolvedEnd = String.fromCharCode(125, 125);",
+                  "var missingVariables = requiredVariables.filter((key) => {",
+                  "  const value = pm.environment.get(key);",
+                  "  return !value || value.includes(unresolvedStart) || value.includes(unresolvedEnd);",
+                  "});",
+                  "if (missingVariables.length > 0) {",
+                  "  throw new Error(`Missing Postman environment value(s): ${missingVariables.join(', ')}.`);",
+                  "}"
+                ]
+              }
+            },
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Contest created', function () {",
+                  "pm.test('Contest is created', function () {",
                   "  pm.response.to.have.status(201);",
                   "});",
-                  "pm.environment.set('contestId', pm.response.json().id);"
+                  "if (pm.response.code !== 201) {",
+                  "  throw new Error(`Contest is created failed (${pm.response.code}): ${pm.response.text()}`);",
+                  "}",
+                  "const json = pm.response.json();",
+                  "if (!json.id) { throw new Error('Create Contest response did not include id.'); }",
+                  "pm.environment.set('contestId', json.id);"
                 ]
               }
             }
@@ -328,11 +503,11 @@
                 "value": "Bearer {{adminToken}}"
               }
             ],
+            "url": "{{baseUrl}}/api/v1/admin/elections/{{electionId}}/contests",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"{{contestName}}\",\n  \"type\": \"MUNICIPAL_WARD\",\n  \"displayOrder\": 1,\n  \"scopeProvince\": \"Western Cape\",\n  \"scopeMunicipality\": \"City of Cape Town\",\n  \"scopeWardNumber\": 12\n}"
-            },
-            "url": "{{baseUrl}}/api/v1/admin/elections/{{electionId}}/contests"
+              "raw": "{\n  \"name\": \"{{contestName}}\",\n  \"type\": \"MUNICIPAL_WARD\",\n  \"displayOrder\": 1,\n  \"scopeProvince\": \"{{province}}\",\n  \"scopeMunicipality\": \"{{municipality}}\",\n  \"scopeWardNumber\": {{wardNumber}}\n}"
+            }
           },
           "response": []
         },
@@ -340,14 +515,37 @@
           "name": "Create Option A",
           "event": [
             {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var requiredVariables = [\"adminToken\",\"electionId\",\"contestId\"];",
+                  "var unresolvedStart = String.fromCharCode(123, 123);",
+                  "var unresolvedEnd = String.fromCharCode(125, 125);",
+                  "var missingVariables = requiredVariables.filter((key) => {",
+                  "  const value = pm.environment.get(key);",
+                  "  return !value || value.includes(unresolvedStart) || value.includes(unresolvedEnd);",
+                  "});",
+                  "if (missingVariables.length > 0) {",
+                  "  throw new Error(`Missing Postman environment value(s): ${missingVariables.join(', ')}.`);",
+                  "}"
+                ]
+              }
+            },
+            {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Option A created', function () {",
+                  "pm.test('Option A is created', function () {",
                   "  pm.response.to.have.status(201);",
                   "});",
-                  "pm.environment.set('optionAId', pm.response.json().id);"
+                  "if (pm.response.code !== 201) {",
+                  "  throw new Error(`Option A is created failed (${pm.response.code}): ${pm.response.text()}`);",
+                  "}",
+                  "const json = pm.response.json();",
+                  "if (!json.id) { throw new Error('Create Option A response did not include id.'); }",
+                  "pm.environment.set('optionAId', json.id);"
                 ]
               }
             }
@@ -364,11 +562,11 @@
                 "value": "Bearer {{adminToken}}"
               }
             ],
+            "url": "{{baseUrl}}/api/v1/admin/elections/{{electionId}}/contests/{{contestId}}/options",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"name\": \"Ubuntu Civic Party\",\n  \"optionType\": \"PARTY\",\n  \"displayOrder\": 1\n}"
-            },
-            "url": "{{baseUrl}}/api/v1/admin/elections/{{electionId}}/contests/{{contestId}}/options"
+            }
           },
           "response": []
         },
@@ -376,14 +574,37 @@
           "name": "Create Option B",
           "event": [
             {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var requiredVariables = [\"adminToken\",\"electionId\",\"contestId\"];",
+                  "var unresolvedStart = String.fromCharCode(123, 123);",
+                  "var unresolvedEnd = String.fromCharCode(125, 125);",
+                  "var missingVariables = requiredVariables.filter((key) => {",
+                  "  const value = pm.environment.get(key);",
+                  "  return !value || value.includes(unresolvedStart) || value.includes(unresolvedEnd);",
+                  "});",
+                  "if (missingVariables.length > 0) {",
+                  "  throw new Error(`Missing Postman environment value(s): ${missingVariables.join(', ')}.`);",
+                  "}"
+                ]
+              }
+            },
+            {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Option B created', function () {",
+                  "pm.test('Option B is created', function () {",
                   "  pm.response.to.have.status(201);",
                   "});",
-                  "pm.environment.set('optionBId', pm.response.json().id);"
+                  "if (pm.response.code !== 201) {",
+                  "  throw new Error(`Option B is created failed (${pm.response.code}): ${pm.response.text()}`);",
+                  "}",
+                  "const json = pm.response.json();",
+                  "if (!json.id) { throw new Error('Create Option B response did not include id.'); }",
+                  "pm.environment.set('optionBId', json.id);"
                 ]
               }
             }
@@ -400,11 +621,11 @@
                 "value": "Bearer {{adminToken}}"
               }
             ],
+            "url": "{{baseUrl}}/api/v1/admin/elections/{{electionId}}/contests/{{contestId}}/options",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"name\": \"Future Youth Movement\",\n  \"optionType\": \"PARTY\",\n  \"displayOrder\": 2\n}"
-            },
-            "url": "{{baseUrl}}/api/v1/admin/elections/{{electionId}}/contests/{{contestId}}/options"
+            }
           },
           "response": []
         },
@@ -412,14 +633,37 @@
           "name": "Create Blank Ballot Option",
           "event": [
             {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var requiredVariables = [\"adminToken\",\"electionId\",\"contestId\"];",
+                  "var unresolvedStart = String.fromCharCode(123, 123);",
+                  "var unresolvedEnd = String.fromCharCode(125, 125);",
+                  "var missingVariables = requiredVariables.filter((key) => {",
+                  "  const value = pm.environment.get(key);",
+                  "  return !value || value.includes(unresolvedStart) || value.includes(unresolvedEnd);",
+                  "});",
+                  "if (missingVariables.length > 0) {",
+                  "  throw new Error(`Missing Postman environment value(s): ${missingVariables.join(', ')}.`);",
+                  "}"
+                ]
+              }
+            },
+            {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Blank option created', function () {",
+                  "pm.test('Blank ballot option is created', function () {",
                   "  pm.response.to.have.status(201);",
                   "});",
-                  "pm.environment.set('blankOptionId', pm.response.json().id);"
+                  "if (pm.response.code !== 201) {",
+                  "  throw new Error(`Blank ballot option is created failed (${pm.response.code}): ${pm.response.text()}`);",
+                  "}",
+                  "const json = pm.response.json();",
+                  "if (!json.id) { throw new Error('Create Blank Ballot Option response did not include id.'); }",
+                  "pm.environment.set('blankOptionId', json.id);"
                 ]
               }
             }
@@ -436,11 +680,11 @@
                 "value": "Bearer {{adminToken}}"
               }
             ],
+            "url": "{{baseUrl}}/api/v1/admin/elections/{{electionId}}/contests/{{contestId}}/options",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"name\": \"Blank ballot\",\n  \"optionType\": \"BLANK_BALLOT\",\n  \"displayOrder\": 98\n}"
-            },
-            "url": "{{baseUrl}}/api/v1/admin/elections/{{electionId}}/contests/{{contestId}}/options"
+            }
           },
           "response": []
         },
@@ -448,14 +692,37 @@
           "name": "Create Spoilt Ballot Option",
           "event": [
             {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var requiredVariables = [\"adminToken\",\"electionId\",\"contestId\"];",
+                  "var unresolvedStart = String.fromCharCode(123, 123);",
+                  "var unresolvedEnd = String.fromCharCode(125, 125);",
+                  "var missingVariables = requiredVariables.filter((key) => {",
+                  "  const value = pm.environment.get(key);",
+                  "  return !value || value.includes(unresolvedStart) || value.includes(unresolvedEnd);",
+                  "});",
+                  "if (missingVariables.length > 0) {",
+                  "  throw new Error(`Missing Postman environment value(s): ${missingVariables.join(', ')}.`);",
+                  "}"
+                ]
+              }
+            },
+            {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Spoilt option created', function () {",
+                  "pm.test('Spoilt ballot option is created', function () {",
                   "  pm.response.to.have.status(201);",
                   "});",
-                  "pm.environment.set('spoiltOptionId', pm.response.json().id);"
+                  "if (pm.response.code !== 201) {",
+                  "  throw new Error(`Spoilt ballot option is created failed (${pm.response.code}): ${pm.response.text()}`);",
+                  "}",
+                  "const json = pm.response.json();",
+                  "if (!json.id) { throw new Error('Create Spoilt Ballot Option response did not include id.'); }",
+                  "pm.environment.set('spoiltOptionId', json.id);"
                 ]
               }
             }
@@ -472,56 +739,301 @@
                 "value": "Bearer {{adminToken}}"
               }
             ],
+            "url": "{{baseUrl}}/api/v1/admin/elections/{{electionId}}/contests/{{contestId}}/options",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"name\": \"Spoilt ballot\",\n  \"optionType\": \"SPOILT_BALLOT\",\n  \"displayOrder\": 99\n}"
-            },
-            "url": "{{baseUrl}}/api/v1/admin/elections/{{electionId}}/contests/{{contestId}}/options"
+            }
           },
           "response": []
         },
         {
-          "name": "Transition Election to REGISTRATION_OPEN",
-          "request": {
-            "method": "PATCH",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              },
-              {
-                "key": "Authorization",
-                "value": "Bearer {{adminToken}}"
+          "name": "Timing Check - Registration Window Open",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var requiredVariables = [\"electionId\",\"votingDistrictId\",\"voterSouthAfricanIdNumber\",\"voterToken\",\"registrationStartAt\",\"registrationEndAt\"];",
+                  "var unresolvedStart = String.fromCharCode(123, 123);",
+                  "var unresolvedEnd = String.fromCharCode(125, 125);",
+                  "var missingVariables = requiredVariables.filter((key) => {",
+                  "  const value = pm.environment.get(key);",
+                  "  return !value || value.includes(unresolvedStart) || value.includes(unresolvedEnd);",
+                  "});",
+                  "if (missingVariables.length > 0) {",
+                  "  throw new Error(`Missing Postman environment value(s): ${missingVariables.join(', ')}.`);",
+                  "}",
+                  "const registrationStartAt = Date.parse(pm.environment.get('registrationStartAt'));",
+                  "const registrationEndAt = Date.parse(pm.environment.get('registrationEndAt'));",
+                  "const secondsUntilStart = Math.ceil((registrationStartAt - Date.now()) / 1000);",
+                  "const secondsRemaining = Math.ceil((registrationEndAt - Date.now()) / 1000);",
+                  "if (secondsUntilStart > 0) {",
+                  "  throw new Error(`Registration has not opened yet. Wait ${secondsUntilStart} second(s), then rerun this request.`);",
+                  "}",
+                  "if (secondsRemaining <= 0) {",
+                  "  throw new Error('Registration window expired for this demo election. Run Reset Verified Demo Data and recreate the election, or increase registrationGraceSeconds before Create Election.');",
+                  "}"
+                ]
               }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"status\": \"REGISTRATION_OPEN\"\n}"
             },
-            "url": "{{baseUrl}}/api/v1/admin/elections/{{electionId}}/status"
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Registration start time has arrived', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "if (pm.response.code !== 200) {",
+                  "  throw new Error(`Registration start time has arrived failed (${pm.response.code}): ${pm.response.text()}`);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/actuator/health"
+          },
+          "response": []
+        },
+        {
+          "name": "Confirm Election Is REGISTRATION_OPEN",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var requiredVariables = [\"electionId\"];",
+                  "var unresolvedStart = String.fromCharCode(123, 123);",
+                  "var unresolvedEnd = String.fromCharCode(125, 125);",
+                  "var missingVariables = requiredVariables.filter((key) => {",
+                  "  const value = pm.environment.get(key);",
+                  "  return !value || value.includes(unresolvedStart) || value.includes(unresolvedEnd);",
+                  "});",
+                  "if (missingVariables.length > 0) {",
+                  "  throw new Error(`Missing Postman environment value(s): ${missingVariables.join(', ')}.`);",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Election status is available', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "if (pm.response.code !== 200) {",
+                  "  throw new Error(`Election status is available failed (${pm.response.code}): ${pm.response.text()}`);",
+                  "}",
+                  "const json = pm.response.json();",
+                  "pm.test('Status is REGISTRATION_OPEN', function () {",
+                  "  pm.expect(json.status).to.equal('REGISTRATION_OPEN');",
+                  "});",
+                  "if (json.status !== 'REGISTRATION_OPEN') { throw new Error('The scheduler has not reached REGISTRATION_OPEN yet. Wait a few seconds and rerun this request.'); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/elections/{{electionId}}"
           },
           "response": []
         }
       ]
     },
     {
-      "name": "03 - Voter Registration",
+      "name": "03 - Public Reads",
       "item": [
         {
-          "name": "Register Voter Account",
+          "name": "List Voting Districts",
           "event": [
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Voter account created or already exists', function () {",
-                  "  pm.expect([201, 409]).to.include(pm.response.code);",
+                  "pm.test('Voting districts are public', function () {",
+                  "  pm.response.to.have.status(200);",
                   "});",
+                  "if (pm.response.code !== 200) {",
+                  "  throw new Error(`Voting districts are public failed (${pm.response.code}): ${pm.response.text()}`);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/voting-districts"
+          },
+          "response": []
+        },
+        {
+          "name": "List Elections",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Elections are public', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "if (pm.response.code !== 200) {",
+                  "  throw new Error(`Elections are public failed (${pm.response.code}): ${pm.response.text()}`);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/elections"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Election",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var requiredVariables = [\"electionId\"];",
+                  "var unresolvedStart = String.fromCharCode(123, 123);",
+                  "var unresolvedEnd = String.fromCharCode(125, 125);",
+                  "var missingVariables = requiredVariables.filter((key) => {",
+                  "  const value = pm.environment.get(key);",
+                  "  return !value || value.includes(unresolvedStart) || value.includes(unresolvedEnd);",
+                  "});",
+                  "if (missingVariables.length > 0) {",
+                  "  throw new Error(`Missing Postman environment value(s): ${missingVariables.join(', ')}.`);",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Election details are public', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "if (pm.response.code !== 200) {",
+                  "  throw new Error(`Election details are public failed (${pm.response.code}): ${pm.response.text()}`);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/elections/{{electionId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "List Contests",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var requiredVariables = [\"electionId\"];",
+                  "var unresolvedStart = String.fromCharCode(123, 123);",
+                  "var unresolvedEnd = String.fromCharCode(125, 125);",
+                  "var missingVariables = requiredVariables.filter((key) => {",
+                  "  const value = pm.environment.get(key);",
+                  "  return !value || value.includes(unresolvedStart) || value.includes(unresolvedEnd);",
+                  "});",
+                  "if (missingVariables.length > 0) {",
+                  "  throw new Error(`Missing Postman environment value(s): ${missingVariables.join(', ')}.`);",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Contest list is public', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "if (pm.response.code !== 200) {",
+                  "  throw new Error(`Contest list is public failed (${pm.response.code}): ${pm.response.text()}`);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/elections/{{electionId}}/contests"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "04 - Voter Registration",
+      "item": [
+        {
+          "name": "Register Voter Account",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var requiredVariables = [\"voterEmail\",\"voterPassword\"];",
+                  "var unresolvedStart = String.fromCharCode(123, 123);",
+                  "var unresolvedEnd = String.fromCharCode(125, 125);",
+                  "var missingVariables = requiredVariables.filter((key) => {",
+                  "  const value = pm.environment.get(key);",
+                  "  return !value || value.includes(unresolvedStart) || value.includes(unresolvedEnd);",
+                  "});",
+                  "if (missingVariables.length > 0) {",
+                  "  throw new Error(`Missing Postman environment value(s): ${missingVariables.join(', ')}.`);",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const allowedStatuses = [201,409];",
+                  "pm.test('Voter account is created or already exists', function () {",
+                  "  pm.expect(allowedStatuses).to.include(pm.response.code);",
+                  "});",
+                  "if (!allowedStatuses.includes(pm.response.code)) {",
+                  "  throw new Error(`Voter account is created or already exists failed (${pm.response.code}): ${pm.response.text()}`);",
+                  "}",
                   "if (pm.response.code === 201) {",
                   "  const json = pm.response.json();",
+                  "  if (!json.accessToken) { throw new Error('Register Voter Account response did not include accessToken.'); }",
                   "  pm.environment.set('voterToken', json.accessToken);",
                   "  pm.environment.set('voterUserId', json.userId);",
+                  "} else {",
+                  "  console.warn('Voter account already exists. Continue with Login Voter.');",
                   "}"
                 ]
               }
@@ -535,11 +1047,11 @@
                 "value": "application/json"
               }
             ],
+            "url": "{{baseUrl}}/api/v1/auth/register",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"email\": \"{{voterEmail}}\",\n  \"password\": \"{{voterPassword}}\"\n}"
-            },
-            "url": "{{baseUrl}}/api/v1/auth/register"
+            }
           },
           "response": []
         },
@@ -547,16 +1059,39 @@
           "name": "Login Voter",
           "event": [
             {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var requiredVariables = [\"voterEmail\",\"voterPassword\"];",
+                  "var unresolvedStart = String.fromCharCode(123, 123);",
+                  "var unresolvedEnd = String.fromCharCode(125, 125);",
+                  "var missingVariables = requiredVariables.filter((key) => {",
+                  "  const value = pm.environment.get(key);",
+                  "  return !value || value.includes(unresolvedStart) || value.includes(unresolvedEnd);",
+                  "});",
+                  "if (missingVariables.length > 0) {",
+                  "  throw new Error(`Missing Postman environment value(s): ${missingVariables.join(', ')}.`);",
+                  "}"
+                ]
+              }
+            },
+            {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Voter login succeeded', function () {",
+                  "pm.test('Voter login succeeds', function () {",
                   "  pm.response.to.have.status(200);",
                   "});",
+                  "if (pm.response.code !== 200) {",
+                  "  throw new Error(`Voter login succeeds failed (${pm.response.code}): ${pm.response.text()}`);",
+                  "}",
                   "const json = pm.response.json();",
+                  "if (!json.accessToken) { throw new Error('Voter login response did not include accessToken.'); }",
                   "pm.environment.set('voterToken', json.accessToken);",
-                  "pm.environment.set('voterUserId', json.userId);"
+                  "pm.environment.set('voterUserId', json.userId);",
+                  "pm.test('Voter role returned', function () { pm.expect(pm.response.json().role).to.equal('VOTER'); });"
                 ]
               }
             }
@@ -569,11 +1104,60 @@
                 "value": "application/json"
               }
             ],
+            "url": "{{baseUrl}}/api/v1/auth/login",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"email\": \"{{voterEmail}}\",\n  \"password\": \"{{voterPassword}}\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Auth Me - Voter",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var requiredVariables = [\"voterToken\"];",
+                  "var unresolvedStart = String.fromCharCode(123, 123);",
+                  "var unresolvedEnd = String.fromCharCode(125, 125);",
+                  "var missingVariables = requiredVariables.filter((key) => {",
+                  "  const value = pm.environment.get(key);",
+                  "  return !value || value.includes(unresolvedStart) || value.includes(unresolvedEnd);",
+                  "});",
+                  "if (missingVariables.length > 0) {",
+                  "  throw new Error(`Missing Postman environment value(s): ${missingVariables.join(', ')}.`);",
+                  "}"
+                ]
+              }
             },
-            "url": "{{baseUrl}}/api/v1/auth/login"
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Authenticated voter profile is returned', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "if (pm.response.code !== 200) {",
+                  "  throw new Error(`Authenticated voter profile is returned failed (${pm.response.code}): ${pm.response.text()}`);",
+                  "}",
+                  "pm.test('Profile role is VOTER', function () { pm.expect(pm.response.json().role).to.equal('VOTER'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{voterToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/auth/me"
           },
           "response": []
         },
@@ -585,20 +1169,25 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "const requiredEnvironmentVariables = [",
-                  "  'electionId',",
-                  "  'votingDistrictId',",
-                  "  'voterSouthAfricanIdNumber',",
-                  "  'voterToken'",
-                  "];",
-                  "const missingVariables = requiredEnvironmentVariables.filter((key) => {",
+                  "var requiredVariables = [\"electionId\",\"votingDistrictId\",\"voterSouthAfricanIdNumber\",\"voterToken\",\"registrationStartAt\",\"registrationEndAt\"];",
+                  "var unresolvedStart = String.fromCharCode(123, 123);",
+                  "var unresolvedEnd = String.fromCharCode(125, 125);",
+                  "var missingVariables = requiredVariables.filter((key) => {",
                   "  const value = pm.environment.get(key);",
-                  "  const unresolvedStart = String.fromCharCode(123, 123);",
-                  "  const unresolvedEnd = String.fromCharCode(125, 125);",
                   "  return !value || value.includes(unresolvedStart) || value.includes(unresolvedEnd);",
                   "});",
                   "if (missingVariables.length > 0) {",
-                  "  throw new Error(`Missing Postman environment value(s): ${missingVariables.join(', ')}. Run Initialize Demo Variables, Create Voting District, Create Election, Register Voter Account, and Login Voter first.`);",
+                  "  throw new Error(`Missing Postman environment value(s): ${missingVariables.join(', ')}.`);",
+                  "}",
+                  "const registrationStartAt = Date.parse(pm.environment.get('registrationStartAt'));",
+                  "const registrationEndAt = Date.parse(pm.environment.get('registrationEndAt'));",
+                  "const secondsUntilStart = Math.ceil((registrationStartAt - Date.now()) / 1000);",
+                  "const secondsRemaining = Math.ceil((registrationEndAt - Date.now()) / 1000);",
+                  "if (secondsUntilStart > 0) {",
+                  "  throw new Error(`Registration has not opened yet. Wait ${secondsUntilStart} second(s), then rerun this request.`);",
+                  "}",
+                  "if (secondsRemaining <= 0) {",
+                  "  throw new Error('Registration window expired for this demo election. Run Reset Verified Demo Data and recreate the election, or increase registrationGraceSeconds before Create Election.');",
                   "}"
                 ]
               }
@@ -608,10 +1197,21 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Election registration created', function () {",
-                  "  pm.response.to.have.status(201);",
+                  "const allowedStatuses = [201,409];",
+                  "pm.test('Election registration is created or already exists', function () {",
+                  "  pm.expect(allowedStatuses).to.include(pm.response.code);",
                   "});",
-                  "pm.environment.set('registrationId', pm.response.json().id);"
+                  "if (!allowedStatuses.includes(pm.response.code)) {",
+                  "  throw new Error(`Election registration is created or already exists failed (${pm.response.code}): ${pm.response.text()}`);",
+                  "}",
+                  "if (pm.response.code === 201) {",
+                  "  const json = pm.response.json();",
+                  "  if (!json.id) { throw new Error('Register Voter For Election response did not include id.'); }",
+                  "  pm.environment.set('registrationId', json.id);",
+                  "} else {",
+                  "  const message = pm.response.json().message || pm.response.text();",
+                  "  if (!message.includes('already registered')) { throw new Error(`Election registration failed (${pm.response.code}): ${pm.response.text()}`); }",
+                  "}"
                 ]
               }
             }
@@ -628,17 +1228,51 @@
                 "value": "Bearer {{voterToken}}"
               }
             ],
+            "url": "{{baseUrl}}/api/v1/elections/{{electionId}}/registrations",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"southAfricanIdNumber\": \"{{voterSouthAfricanIdNumber}}\",\n  \"idDocumentType\": \"SMART_ID_CARD\",\n  \"votingDistrictId\": \"{{votingDistrictId}}\"\n}"
-            },
-            "url": "{{baseUrl}}/api/v1/elections/{{electionId}}/registrations",
-            "description": "Run before registrationEndAt. If this fails with registration closed, start a fresh demo run from Initialize Demo Variables."
+              "raw": "{\n  \"southAfricanIdNumber\": \"{{voterSouthAfricanIdNumber}}\",\n  \"idDocumentType\": \"{{idDocumentType}}\",\n  \"votingDistrictId\": \"{{votingDistrictId}}\"\n}"
+            }
           },
           "response": []
         },
         {
           "name": "My Registrations",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var requiredVariables = [\"voterToken\"];",
+                  "var unresolvedStart = String.fromCharCode(123, 123);",
+                  "var unresolvedEnd = String.fromCharCode(125, 125);",
+                  "var missingVariables = requiredVariables.filter((key) => {",
+                  "  const value = pm.environment.get(key);",
+                  "  return !value || value.includes(unresolvedStart) || value.includes(unresolvedEnd);",
+                  "});",
+                  "if (missingVariables.length > 0) {",
+                  "  throw new Error(`Missing Postman environment value(s): ${missingVariables.join(', ')}.`);",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Voter registrations are returned', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "if (pm.response.code !== 200) {",
+                  "  throw new Error(`Voter registrations are returned failed (${pm.response.code}): ${pm.response.text()}`);",
+                  "}",
+                  "pm.test('At least one registration is present', function () { pm.expect(pm.response.json().length).to.be.greaterThan(0); });"
+                ]
+              }
+            }
+          ],
           "request": {
             "method": "GET",
             "header": [
@@ -654,90 +1288,45 @@
       ]
     },
     {
-      "name": "04 - Voting",
+      "name": "05 - Voting",
       "item": [
-        {
-          "name": "Transition Election to REGISTRATION_CLOSED",
-          "request": {
-            "method": "PATCH",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              },
-              {
-                "key": "Authorization",
-                "value": "Bearer {{adminToken}}"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"status\": \"REGISTRATION_CLOSED\"\n}"
-            },
-            "url": "{{baseUrl}}/api/v1/admin/elections/{{electionId}}/status"
-          },
-          "response": []
-        },
-        {
-          "name": "Transition Contest to OPEN",
-          "request": {
-            "method": "PATCH",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              },
-              {
-                "key": "Authorization",
-                "value": "Bearer {{adminToken}}"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"status\": \"OPEN\"\n}"
-            },
-            "url": "{{baseUrl}}/api/v1/admin/elections/{{electionId}}/contests/{{contestId}}/status"
-          },
-          "response": []
-        },
-        {
-          "name": "Transition Election to VOTING_OPEN",
-          "request": {
-            "method": "PATCH",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              },
-              {
-                "key": "Authorization",
-                "value": "Bearer {{adminToken}}"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"status\": \"VOTING_OPEN\"\n}"
-            },
-            "url": "{{baseUrl}}/api/v1/admin/elections/{{electionId}}/status"
-          },
-          "response": []
-        },
         {
           "name": "Timing Check - Voting Window Open",
           "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var requiredVariables = [\"votingStartAt\"];",
+                  "var unresolvedStart = String.fromCharCode(123, 123);",
+                  "var unresolvedEnd = String.fromCharCode(125, 125);",
+                  "var missingVariables = requiredVariables.filter((key) => {",
+                  "  const value = pm.environment.get(key);",
+                  "  return !value || value.includes(unresolvedStart) || value.includes(unresolvedEnd);",
+                  "});",
+                  "if (missingVariables.length > 0) {",
+                  "  throw new Error(`Missing Postman environment value(s): ${missingVariables.join(', ')}.`);",
+                  "}",
+                  "const votingStartAt = Date.parse(pm.environment.get('votingStartAt'));",
+                  "const secondsRemaining = Math.ceil((votingStartAt - Date.now()) / 1000);",
+                  "if (secondsRemaining > 0) {",
+                  "  throw new Error(`Voting window is not open yet. Wait ${secondsRemaining} second(s), then rerun this request.`);",
+                  "}"
+                ]
+              }
+            },
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "const votingStartAt = new Date(pm.environment.get('votingStartAt')).getTime();",
-                  "const waitMs = votingStartAt - Date.now();",
-                  "if (waitMs > 0) {",
-                  "  console.warn(`Wait ${Math.ceil(waitMs / 1000)} seconds before issuing a voting credential.`);",
-                  "}",
-                  "pm.test('Voting window has started', function () {",
-                  "  pm.expect(Date.now()).to.be.at.least(votingStartAt);",
-                  "});"
+                  "pm.test('Voting window is open', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "if (pm.response.code !== 200) {",
+                  "  throw new Error(`Voting window is open failed (${pm.response.code}): ${pm.response.text()}`);",
+                  "}"
                 ]
               }
             }
@@ -745,8 +1334,103 @@
           "request": {
             "method": "GET",
             "header": [],
-            "url": "{{baseUrl}}/actuator/health",
-            "description": "If this fails, wait until votingStartAt and run it again."
+            "url": "{{baseUrl}}/actuator/health"
+          },
+          "response": []
+        },
+        {
+          "name": "Confirm Election Is VOTING_OPEN",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var requiredVariables = [\"electionId\"];",
+                  "var unresolvedStart = String.fromCharCode(123, 123);",
+                  "var unresolvedEnd = String.fromCharCode(125, 125);",
+                  "var missingVariables = requiredVariables.filter((key) => {",
+                  "  const value = pm.environment.get(key);",
+                  "  return !value || value.includes(unresolvedStart) || value.includes(unresolvedEnd);",
+                  "});",
+                  "if (missingVariables.length > 0) {",
+                  "  throw new Error(`Missing Postman environment value(s): ${missingVariables.join(', ')}.`);",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Election status is available', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "if (pm.response.code !== 200) {",
+                  "  throw new Error(`Election status is available failed (${pm.response.code}): ${pm.response.text()}`);",
+                  "}",
+                  "const json = pm.response.json();",
+                  "pm.test('Status is VOTING_OPEN', function () {",
+                  "  pm.expect(json.status).to.equal('VOTING_OPEN');",
+                  "});",
+                  "if (json.status !== 'VOTING_OPEN') { throw new Error('The scheduler has not reached VOTING_OPEN yet. Wait a few seconds and rerun this request.'); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/elections/{{electionId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Confirm Contest Is OPEN",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var requiredVariables = [\"electionId\",\"contestId\"];",
+                  "var unresolvedStart = String.fromCharCode(123, 123);",
+                  "var unresolvedEnd = String.fromCharCode(125, 125);",
+                  "var missingVariables = requiredVariables.filter((key) => {",
+                  "  const value = pm.environment.get(key);",
+                  "  return !value || value.includes(unresolvedStart) || value.includes(unresolvedEnd);",
+                  "});",
+                  "if (missingVariables.length > 0) {",
+                  "  throw new Error(`Missing Postman environment value(s): ${missingVariables.join(', ')}.`);",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Contest list is available', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "if (pm.response.code !== 200) {",
+                  "  throw new Error(`Contest list is available failed (${pm.response.code}): ${pm.response.text()}`);",
+                  "}",
+                  "const contests = pm.response.json();",
+                  "const contest = contests.find((item) => item.id === pm.environment.get('contestId'));",
+                  "if (!contest) { throw new Error('Configured contest was not returned by the API.'); }",
+                  "pm.test('Contest status is OPEN', function () { pm.expect(contest.status).to.equal('OPEN'); });",
+                  "if (contest.status !== 'OPEN') { throw new Error('The scheduler has not moved the contest to OPEN yet. Wait a few seconds and rerun this request.'); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/elections/{{electionId}}/contests"
           },
           "response": []
         },
@@ -754,14 +1438,52 @@
           "name": "Issue Voting Credential",
           "event": [
             {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var requiredVariables = [\"voterToken\",\"electionId\",\"contestId\"];",
+                  "var unresolvedStart = String.fromCharCode(123, 123);",
+                  "var unresolvedEnd = String.fromCharCode(125, 125);",
+                  "var missingVariables = requiredVariables.filter((key) => {",
+                  "  const value = pm.environment.get(key);",
+                  "  return !value || value.includes(unresolvedStart) || value.includes(unresolvedEnd);",
+                  "});",
+                  "if (missingVariables.length > 0) {",
+                  "  throw new Error(`Missing Postman environment value(s): ${missingVariables.join(', ')}.`);",
+                  "}",
+                  "var requiredVariables = [\"votingStartAt\"];",
+                  "var unresolvedStart = String.fromCharCode(123, 123);",
+                  "var unresolvedEnd = String.fromCharCode(125, 125);",
+                  "var missingVariables = requiredVariables.filter((key) => {",
+                  "  const value = pm.environment.get(key);",
+                  "  return !value || value.includes(unresolvedStart) || value.includes(unresolvedEnd);",
+                  "});",
+                  "if (missingVariables.length > 0) {",
+                  "  throw new Error(`Missing Postman environment value(s): ${missingVariables.join(', ')}.`);",
+                  "}",
+                  "const votingStartAt = Date.parse(pm.environment.get('votingStartAt'));",
+                  "const secondsRemaining = Math.ceil((votingStartAt - Date.now()) / 1000);",
+                  "if (secondsRemaining > 0) {",
+                  "  throw new Error(`Voting window is not open yet. Wait ${secondsRemaining} second(s), then rerun this request.`);",
+                  "}"
+                ]
+              }
+            },
+            {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Voting credential issued', function () {",
+                  "pm.test('Voting credential is issued', function () {",
                   "  pm.response.to.have.status(201);",
                   "});",
-                  "pm.environment.set('votingCredential', pm.response.json().votingCredential);"
+                  "if (pm.response.code !== 201) {",
+                  "  throw new Error(`Voting credential is issued failed (${pm.response.code}): ${pm.response.text()}`);",
+                  "}",
+                  "const json = pm.response.json();",
+                  "if (!json.votingCredential) { throw new Error('Issue Voting Credential response did not include votingCredential.'); }",
+                  "pm.environment.set('votingCredential', json.votingCredential);"
                 ]
               }
             }
@@ -782,14 +1504,50 @@
           "name": "Cast Ballot - Option A",
           "event": [
             {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var requiredVariables = [\"contestId\",\"optionAId\",\"votingCredential\"];",
+                  "var unresolvedStart = String.fromCharCode(123, 123);",
+                  "var unresolvedEnd = String.fromCharCode(125, 125);",
+                  "var missingVariables = requiredVariables.filter((key) => {",
+                  "  const value = pm.environment.get(key);",
+                  "  return !value || value.includes(unresolvedStart) || value.includes(unresolvedEnd);",
+                  "});",
+                  "if (missingVariables.length > 0) {",
+                  "  throw new Error(`Missing Postman environment value(s): ${missingVariables.join(', ')}.`);",
+                  "}",
+                  "var requiredVariables = [\"votingStartAt\"];",
+                  "var unresolvedStart = String.fromCharCode(123, 123);",
+                  "var unresolvedEnd = String.fromCharCode(125, 125);",
+                  "var missingVariables = requiredVariables.filter((key) => {",
+                  "  const value = pm.environment.get(key);",
+                  "  return !value || value.includes(unresolvedStart) || value.includes(unresolvedEnd);",
+                  "});",
+                  "if (missingVariables.length > 0) {",
+                  "  throw new Error(`Missing Postman environment value(s): ${missingVariables.join(', ')}.`);",
+                  "}",
+                  "const votingStartAt = Date.parse(pm.environment.get('votingStartAt'));",
+                  "const secondsRemaining = Math.ceil((votingStartAt - Date.now()) / 1000);",
+                  "if (secondsRemaining > 0) {",
+                  "  throw new Error(`Voting window is not open yet. Wait ${secondsRemaining} second(s), then rerun this request.`);",
+                  "}"
+                ]
+              }
+            },
+            {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Ballot accepted', function () {",
+                  "pm.test('Ballot is accepted', function () {",
                   "  pm.response.to.have.status(201);",
-                  "  pm.expect(pm.response.json().accepted).to.equal(true);",
-                  "});"
+                  "});",
+                  "if (pm.response.code !== 201) {",
+                  "  throw new Error(`Ballot is accepted failed (${pm.response.code}): ${pm.response.text()}`);",
+                  "}",
+                  "pm.test('Ballot response is accepted', function () { pm.expect(pm.response.json().accepted).to.equal(true); });"
                 ]
               }
             }
@@ -802,74 +1560,56 @@
                 "value": "application/json"
               }
             ],
+            "url": "{{baseUrl}}/api/v1/ballots",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"contestId\": \"{{contestId}}\",\n  \"contestOptionId\": \"{{optionAId}}\",\n  \"votingCredential\": \"{{votingCredential}}\"\n}"
-            },
-            "url": "{{baseUrl}}/api/v1/ballots",
-            "description": "Run only one ballot-casting request per issued credential."
-          },
-          "response": []
-        },
-        {
-          "name": "Optional - Cast Blank Ballot",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"contestId\": \"{{contestId}}\",\n  \"contestOptionId\": \"{{blankOptionId}}\",\n  \"votingCredential\": \"{{votingCredential}}\"\n}"
-            },
-            "url": "{{baseUrl}}/api/v1/ballots",
-            "description": "Alternative to Option A. Requires a fresh unused votingCredential."
-          },
-          "response": []
-        },
-        {
-          "name": "Optional - Cast Spoilt Ballot",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"contestId\": \"{{contestId}}\",\n  \"contestOptionId\": \"{{spoiltOptionId}}\",\n  \"votingCredential\": \"{{votingCredential}}\"\n}"
-            },
-            "url": "{{baseUrl}}/api/v1/ballots",
-            "description": "Alternative to Option A. Requires a fresh unused votingCredential."
+            }
           },
           "response": []
         }
       ]
     },
     {
-      "name": "05 - Results and Audit",
+      "name": "06 - Results and Audit",
       "item": [
         {
           "name": "Timing Check - Voting Window Closed",
           "event": [
             {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var requiredVariables = [\"votingEndAt\"];",
+                  "var unresolvedStart = String.fromCharCode(123, 123);",
+                  "var unresolvedEnd = String.fromCharCode(125, 125);",
+                  "var missingVariables = requiredVariables.filter((key) => {",
+                  "  const value = pm.environment.get(key);",
+                  "  return !value || value.includes(unresolvedStart) || value.includes(unresolvedEnd);",
+                  "});",
+                  "if (missingVariables.length > 0) {",
+                  "  throw new Error(`Missing Postman environment value(s): ${missingVariables.join(', ')}.`);",
+                  "}",
+                  "const votingEndAt = Date.parse(pm.environment.get('votingEndAt'));",
+                  "const secondsRemaining = Math.ceil((votingEndAt - Date.now()) / 1000);",
+                  "if (secondsRemaining > 0) {",
+                  "  throw new Error(`Voting window is not closed yet. Wait ${secondsRemaining} second(s), then rerun this request.`);",
+                  "}"
+                ]
+              }
+            },
+            {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "const votingEndAt = new Date(pm.environment.get('votingEndAt')).getTime();",
-                  "const waitMs = votingEndAt - Date.now();",
-                  "if (waitMs > 0) {",
-                  "  console.warn(`Wait ${Math.ceil(waitMs / 1000)} seconds before closing and auditing results.`);",
-                  "}",
-                  "pm.test('Voting window has ended', function () {",
-                  "  pm.expect(Date.now()).to.be.greaterThan(votingEndAt);",
-                  "});"
+                  "pm.test('Voting window is closed', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "if (pm.response.code !== 200) {",
+                  "  throw new Error(`Voting window is closed failed (${pm.response.code}): ${pm.response.text()}`);",
+                  "}"
                 ]
               }
             }
@@ -877,57 +1617,158 @@
           "request": {
             "method": "GET",
             "header": [],
-            "url": "{{baseUrl}}/actuator/health",
-            "description": "If this fails, wait until votingEndAt and run it again."
+            "url": "{{baseUrl}}/actuator/health"
           },
           "response": []
         },
         {
-          "name": "Transition Contest to CLOSED",
-          "request": {
-            "method": "PATCH",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              },
-              {
-                "key": "Authorization",
-                "value": "Bearer {{adminToken}}"
+          "name": "Confirm Election Is COMPLETED",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var requiredVariables = [\"electionId\"];",
+                  "var unresolvedStart = String.fromCharCode(123, 123);",
+                  "var unresolvedEnd = String.fromCharCode(125, 125);",
+                  "var missingVariables = requiredVariables.filter((key) => {",
+                  "  const value = pm.environment.get(key);",
+                  "  return !value || value.includes(unresolvedStart) || value.includes(unresolvedEnd);",
+                  "});",
+                  "if (missingVariables.length > 0) {",
+                  "  throw new Error(`Missing Postman environment value(s): ${missingVariables.join(', ')}.`);",
+                  "}"
+                ]
               }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"status\": \"CLOSED\"\n}"
             },
-            "url": "{{baseUrl}}/api/v1/admin/elections/{{electionId}}/contests/{{contestId}}/status"
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Election status is available', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "if (pm.response.code !== 200) {",
+                  "  throw new Error(`Election status is available failed (${pm.response.code}): ${pm.response.text()}`);",
+                  "}",
+                  "const json = pm.response.json();",
+                  "pm.test('Status is COMPLETED', function () {",
+                  "  pm.expect(json.status).to.equal('COMPLETED');",
+                  "});",
+                  "if (json.status !== 'COMPLETED') { throw new Error('The scheduler has not reached COMPLETED yet. Wait a few seconds and rerun this request.'); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/elections/{{electionId}}"
           },
           "response": []
         },
         {
-          "name": "Transition Election to COMPLETED",
-          "request": {
-            "method": "PATCH",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              },
-              {
-                "key": "Authorization",
-                "value": "Bearer {{adminToken}}"
+          "name": "Confirm Contest Is CLOSED",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var requiredVariables = [\"electionId\",\"contestId\"];",
+                  "var unresolvedStart = String.fromCharCode(123, 123);",
+                  "var unresolvedEnd = String.fromCharCode(125, 125);",
+                  "var missingVariables = requiredVariables.filter((key) => {",
+                  "  const value = pm.environment.get(key);",
+                  "  return !value || value.includes(unresolvedStart) || value.includes(unresolvedEnd);",
+                  "});",
+                  "if (missingVariables.length > 0) {",
+                  "  throw new Error(`Missing Postman environment value(s): ${missingVariables.join(', ')}.`);",
+                  "}"
+                ]
               }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"status\": \"COMPLETED\"\n}"
             },
-            "url": "{{baseUrl}}/api/v1/admin/elections/{{electionId}}/status"
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Contest list is available', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "if (pm.response.code !== 200) {",
+                  "  throw new Error(`Contest list is available failed (${pm.response.code}): ${pm.response.text()}`);",
+                  "}",
+                  "const contests = pm.response.json();",
+                  "const contest = contests.find((item) => item.id === pm.environment.get('contestId'));",
+                  "if (!contest) { throw new Error('Configured contest was not returned by the API.'); }",
+                  "pm.test('Contest status is CLOSED', function () { pm.expect(contest.status).to.equal('CLOSED'); });",
+                  "if (contest.status !== 'CLOSED') { throw new Error('The scheduler has not moved the contest to CLOSED yet. Wait a few seconds and rerun this request.'); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/elections/{{electionId}}/contests"
           },
           "response": []
         },
         {
           "name": "Get Final Results",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var requiredVariables = [\"electionId\",\"contestId\"];",
+                  "var unresolvedStart = String.fromCharCode(123, 123);",
+                  "var unresolvedEnd = String.fromCharCode(125, 125);",
+                  "var missingVariables = requiredVariables.filter((key) => {",
+                  "  const value = pm.environment.get(key);",
+                  "  return !value || value.includes(unresolvedStart) || value.includes(unresolvedEnd);",
+                  "});",
+                  "if (missingVariables.length > 0) {",
+                  "  throw new Error(`Missing Postman environment value(s): ${missingVariables.join(', ')}.`);",
+                  "}",
+                  "var requiredVariables = [\"votingEndAt\"];",
+                  "var unresolvedStart = String.fromCharCode(123, 123);",
+                  "var unresolvedEnd = String.fromCharCode(125, 125);",
+                  "var missingVariables = requiredVariables.filter((key) => {",
+                  "  const value = pm.environment.get(key);",
+                  "  return !value || value.includes(unresolvedStart) || value.includes(unresolvedEnd);",
+                  "});",
+                  "if (missingVariables.length > 0) {",
+                  "  throw new Error(`Missing Postman environment value(s): ${missingVariables.join(', ')}.`);",
+                  "}",
+                  "const votingEndAt = Date.parse(pm.environment.get('votingEndAt'));",
+                  "const secondsRemaining = Math.ceil((votingEndAt - Date.now()) / 1000);",
+                  "if (secondsRemaining > 0) {",
+                  "  throw new Error(`Voting window is not closed yet. Wait ${secondsRemaining} second(s), then rerun this request.`);",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Final results are available', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "if (pm.response.code !== 200) {",
+                  "  throw new Error(`Final results are available failed (${pm.response.code}): ${pm.response.text()}`);",
+                  "}",
+                  "pm.test('At least one ballot and valid vote counted', function () { const json = pm.response.json(); pm.expect(json.ballotsCast).to.be.at.least(1); pm.expect(json.validVotes).to.be.at.least(1); });"
+                ]
+              }
+            }
+          ],
           "request": {
             "method": "GET",
             "header": [],
@@ -937,6 +1778,41 @@
         },
         {
           "name": "Verify Hash Chain",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var requiredVariables = [\"electionId\",\"contestId\"];",
+                  "var unresolvedStart = String.fromCharCode(123, 123);",
+                  "var unresolvedEnd = String.fromCharCode(125, 125);",
+                  "var missingVariables = requiredVariables.filter((key) => {",
+                  "  const value = pm.environment.get(key);",
+                  "  return !value || value.includes(unresolvedStart) || value.includes(unresolvedEnd);",
+                  "});",
+                  "if (missingVariables.length > 0) {",
+                  "  throw new Error(`Missing Postman environment value(s): ${missingVariables.join(', ')}.`);",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Hash chain audit is available', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "if (pm.response.code !== 200) {",
+                  "  throw new Error(`Hash chain audit is available failed (${pm.response.code}): ${pm.response.text()}`);",
+                  "}",
+                  "pm.test('Hash chain is valid', function () { const json = pm.response.json(); pm.expect(json.chainValid).to.equal(true); pm.expect(json.ledgerEntryCount).to.be.at.least(1); });"
+                ]
+              }
+            }
+          ],
           "request": {
             "method": "GET",
             "header": [],
@@ -946,56 +1822,84 @@
         },
         {
           "name": "List Public Ledger",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var requiredVariables = [\"electionId\",\"contestId\"];",
+                  "var unresolvedStart = String.fromCharCode(123, 123);",
+                  "var unresolvedEnd = String.fromCharCode(125, 125);",
+                  "var missingVariables = requiredVariables.filter((key) => {",
+                  "  const value = pm.environment.get(key);",
+                  "  return !value || value.includes(unresolvedStart) || value.includes(unresolvedEnd);",
+                  "});",
+                  "if (missingVariables.length > 0) {",
+                  "  throw new Error(`Missing Postman environment value(s): ${missingVariables.join(', ')}.`);",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Public ledger is available', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "if (pm.response.code !== 200) {",
+                  "  throw new Error(`Public ledger is available failed (${pm.response.code}): ${pm.response.text()}`);",
+                  "}",
+                  "pm.test('Ledger contains anonymized entry', function () { const json = pm.response.json(); pm.expect(json.length).to.be.at.least(1); pm.expect(json[0]).to.have.property('currentHash'); });"
+                ]
+              }
+            }
+          ],
           "request": {
             "method": "GET",
             "header": [],
             "url": "{{baseUrl}}/api/v1/elections/{{electionId}}/contests/{{contestId}}/ledger"
           },
           "response": []
-        }
-      ]
-    },
-    {
-      "name": "06 - Public Reads and Admin Audit",
-      "item": [
-        {
-          "name": "List Voting Districts",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": "{{baseUrl}}/api/v1/voting-districts"
-          },
-          "response": []
-        },
-        {
-          "name": "List Elections",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": "{{baseUrl}}/api/v1/elections"
-          },
-          "response": []
-        },
-        {
-          "name": "Get Election",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": "{{baseUrl}}/api/v1/elections/{{electionId}}"
-          },
-          "response": []
-        },
-        {
-          "name": "List Contests",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": "{{baseUrl}}/api/v1/elections/{{electionId}}/contests"
-          },
-          "response": []
         },
         {
           "name": "Admin Security Audit Events",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var requiredVariables = [\"adminToken\"];",
+                  "var unresolvedStart = String.fromCharCode(123, 123);",
+                  "var unresolvedEnd = String.fromCharCode(125, 125);",
+                  "var missingVariables = requiredVariables.filter((key) => {",
+                  "  const value = pm.environment.get(key);",
+                  "  return !value || value.includes(unresolvedStart) || value.includes(unresolvedEnd);",
+                  "});",
+                  "if (missingVariables.length > 0) {",
+                  "  throw new Error(`Missing Postman environment value(s): ${missingVariables.join(', ')}.`);",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Admin security audit events are returned', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "if (pm.response.code !== 200) {",
+                  "  throw new Error(`Admin security audit events are returned failed (${pm.response.code}): ${pm.response.text()}`);",
+                  "}"
+                ]
+              }
+            }
+          ],
           "request": {
             "method": "GET",
             "header": [
@@ -1007,6 +1911,55 @@
             "url": "{{baseUrl}}/api/v1/admin/security-audit-events?limit=25"
           },
           "response": []
+        },
+        {
+          "name": "Admin Election Lifecycle Events",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var requiredVariables = [\"adminToken\",\"electionId\"];",
+                  "var unresolvedStart = String.fromCharCode(123, 123);",
+                  "var unresolvedEnd = String.fromCharCode(125, 125);",
+                  "var missingVariables = requiredVariables.filter((key) => {",
+                  "  const value = pm.environment.get(key);",
+                  "  return !value || value.includes(unresolvedStart) || value.includes(unresolvedEnd);",
+                  "});",
+                  "if (missingVariables.length > 0) {",
+                  "  throw new Error(`Missing Postman environment value(s): ${missingVariables.join(', ')}.`);",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Election lifecycle audit events are returned', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "if (pm.response.code !== 200) {",
+                  "  throw new Error(`Election lifecycle audit events are returned failed (${pm.response.code}): ${pm.response.text()}`);",
+                  "}",
+                  "pm.test('Automatic lifecycle is fully audited', function () { const events = pm.response.json(); pm.expect(events.length).to.be.at.least(4); pm.expect(events.every((item) => item.trigger === 'AUTOMATIC')).to.equal(true); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/elections/{{electionId}}/lifecycle-events"
+          },
+          "response": []
         }
       ]
     },
@@ -1015,6 +1968,40 @@
       "item": [
         {
           "name": "Invalid Login Returns 401",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var requiredVariables = [\"voterEmail\"];",
+                  "var unresolvedStart = String.fromCharCode(123, 123);",
+                  "var unresolvedEnd = String.fromCharCode(125, 125);",
+                  "var missingVariables = requiredVariables.filter((key) => {",
+                  "  const value = pm.environment.get(key);",
+                  "  return !value || value.includes(unresolvedStart) || value.includes(unresolvedEnd);",
+                  "});",
+                  "if (missingVariables.length > 0) {",
+                  "  throw new Error(`Missing Postman environment value(s): ${missingVariables.join(', ')}.`);",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Invalid login is rejected', function () {",
+                  "  pm.response.to.have.status(401);",
+                  "});",
+                  "if (pm.response.code !== 401) {",
+                  "  throw new Error(`Invalid login is rejected failed (${pm.response.code}): ${pm.response.text()}`);",
+                  "}"
+                ]
+              }
+            }
+          ],
           "request": {
             "method": "POST",
             "header": [
@@ -1023,16 +2010,50 @@
                 "value": "application/json"
               }
             ],
+            "url": "{{baseUrl}}/api/v1/auth/login",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"email\": \"{{voterEmail}}\",\n  \"password\": \"WrongPassword1\"\n}"
-            },
-            "url": "{{baseUrl}}/api/v1/auth/login"
+            }
           },
           "response": []
         },
         {
           "name": "Duplicate Credential Returns 409",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var requiredVariables = [\"voterToken\",\"electionId\",\"contestId\"];",
+                  "var unresolvedStart = String.fromCharCode(123, 123);",
+                  "var unresolvedEnd = String.fromCharCode(125, 125);",
+                  "var missingVariables = requiredVariables.filter((key) => {",
+                  "  const value = pm.environment.get(key);",
+                  "  return !value || value.includes(unresolvedStart) || value.includes(unresolvedEnd);",
+                  "});",
+                  "if (missingVariables.length > 0) {",
+                  "  throw new Error(`Missing Postman environment value(s): ${missingVariables.join(', ')}.`);",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Duplicate credential is rejected', function () {",
+                  "  pm.response.to.have.status(409);",
+                  "});",
+                  "if (pm.response.code !== 409) {",
+                  "  throw new Error(`Duplicate credential is rejected failed (${pm.response.code}): ${pm.response.text()}`);",
+                  "}"
+                ]
+              }
+            }
+          ],
           "request": {
             "method": "POST",
             "header": [
@@ -1041,13 +2062,46 @@
                 "value": "Bearer {{voterToken}}"
               }
             ],
-            "url": "{{baseUrl}}/api/v1/elections/{{electionId}}/contests/{{contestId}}/credentials",
-            "description": "Run after Issue Voting Credential. The same voter cannot receive a second credential for the same contest."
+            "url": "{{baseUrl}}/api/v1/elections/{{electionId}}/contests/{{contestId}}/credentials"
           },
           "response": []
         },
         {
           "name": "Reuse Voting Credential Returns 409",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var requiredVariables = [\"contestId\",\"optionBId\",\"votingCredential\"];",
+                  "var unresolvedStart = String.fromCharCode(123, 123);",
+                  "var unresolvedEnd = String.fromCharCode(125, 125);",
+                  "var missingVariables = requiredVariables.filter((key) => {",
+                  "  const value = pm.environment.get(key);",
+                  "  return !value || value.includes(unresolvedStart) || value.includes(unresolvedEnd);",
+                  "});",
+                  "if (missingVariables.length > 0) {",
+                  "  throw new Error(`Missing Postman environment value(s): ${missingVariables.join(', ')}.`);",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Reused voting credential is rejected', function () {",
+                  "  pm.response.to.have.status(409);",
+                  "});",
+                  "if (pm.response.code !== 409) {",
+                  "  throw new Error(`Reused voting credential is rejected failed (${pm.response.code}): ${pm.response.text()}`);",
+                  "}"
+                ]
+              }
+            }
+          ],
           "request": {
             "method": "POST",
             "header": [
@@ -1056,17 +2110,50 @@
                 "value": "application/json"
               }
             ],
+            "url": "{{baseUrl}}/api/v1/ballots",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"contestId\": \"{{contestId}}\",\n  \"contestOptionId\": \"{{optionBId}}\",\n  \"votingCredential\": \"{{votingCredential}}\"\n}"
-            },
-            "url": "{{baseUrl}}/api/v1/ballots",
-            "description": "Run after successfully casting a ballot."
+            }
           },
           "response": []
         },
         {
           "name": "Invalid Voting Credential Returns 401",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var requiredVariables = [\"contestId\",\"optionAId\"];",
+                  "var unresolvedStart = String.fromCharCode(123, 123);",
+                  "var unresolvedEnd = String.fromCharCode(125, 125);",
+                  "var missingVariables = requiredVariables.filter((key) => {",
+                  "  const value = pm.environment.get(key);",
+                  "  return !value || value.includes(unresolvedStart) || value.includes(unresolvedEnd);",
+                  "});",
+                  "if (missingVariables.length > 0) {",
+                  "  throw new Error(`Missing Postman environment value(s): ${missingVariables.join(', ')}.`);",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Invalid voting credential is rejected', function () {",
+                  "  pm.response.to.have.status(401);",
+                  "});",
+                  "if (pm.response.code !== 401) {",
+                  "  throw new Error(`Invalid voting credential is rejected failed (${pm.response.code}): ${pm.response.text()}`);",
+                  "}"
+                ]
+              }
+            }
+          ],
           "request": {
             "method": "POST",
             "header": [
@@ -1075,11 +2162,11 @@
                 "value": "application/json"
               }
             ],
+            "url": "{{baseUrl}}/api/v1/ballots",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"contestId\": \"{{contestId}}\",\n  \"contestOptionId\": \"{{optionAId}}\",\n  \"votingCredential\": \"not-a-real-credential\"\n}"
-            },
-            "url": "{{baseUrl}}/api/v1/ballots"
+            }
           },
           "response": []
         }
