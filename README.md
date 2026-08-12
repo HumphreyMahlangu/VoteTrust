@@ -1,13 +1,8 @@
 # VoteTrust
-
-> **A Secure Digital Voting Platform**
-
-*Exploring how modern software engineering, cryptography, and secure system design can improve transparency, accessibility, and trust in digital voting.*
-
----
+**A Secure Digital Voting Platform**
+Exploring how modern software engineering, cryptography, and secure system design can improve transparency, accessibility, and trust in digital voting.
 
 ## Table of Contents
-
 * [Overview](#overview)
 * [Why VoteTrust?](#why-votetrust)
 * [The Problem](#the-problem)
@@ -16,46 +11,30 @@
 * [Core Principles](#core-principles)
 * [Key Features](#key-features)
 * [Technology Stack](#technology-stack)
+* [System Architecture / Endpoints](#system-architecture--endpoints)
 * [Local Deployment](#local-deployment)
 * [Project Status](#project-status)
 * [Roadmap](#roadmap)
+* [About the Developer](#about-the-developer)
 * [Disclaimer](#disclaimer)
 * [License](#license)
 
----
-
-# Overview
-
+## Overview
 VoteTrust is a backend-focused software engineering project that explores how secure digital voting systems can be designed using modern technologies.
-
 The project investigates the use of secure authentication, cryptography, audit logging, and distributed ledger concepts to build a voting platform that prioritizes integrity, transparency, privacy, and accessibility.
-
 Rather than attempting to replace existing election systems, VoteTrust serves as a technical exploration of the challenges involved in designing a secure digital voting platform while following modern software engineering best practices.
-
 The primary objective is to demonstrate robust backend architecture, secure application development, and thoughtful system design.
 
----
-
-# Why VoteTrust?
-
+## Why VoteTrust?
 Digital technology has transformed how people bank, communicate, study, shop, and access government services. However, voting remains a largely physical process in many parts of the world.
-
 While in-person voting plays an important role in maintaining election integrity, practical barriers such as long queues, travel requirements, accessibility challenges, and time constraints may discourage participation for some eligible voters.
-
 VoteTrust was created to explore an important engineering question:
-
-> **How can modern software technologies improve accessibility to voting while preserving security, privacy, transparency, and public trust?**
-
+How can modern software technologies improve accessibility to voting while preserving security, privacy, transparency, and public trust?
 This project does not claim to solve every challenge associated with online voting. Instead, it investigates how secure software engineering principles can contribute to future digital voting systems.
 
----
-
-# The Problem
-
+## The Problem
 Designing a secure digital voting system is significantly more complex than building a standard web application.
-
 A trustworthy voting platform must address challenges such as:
-
 * Verifying voter identity.
 * Preventing duplicate voting.
 * Protecting ballot secrecy.
@@ -63,21 +42,13 @@ A trustworthy voting platform must address challenges such as:
 * Providing transparent and auditable election records.
 * Preserving voter privacy.
 * Maintaining confidence in election results.
-
 VoteTrust explores these challenges through software engineering, security, and modern backend architecture.
 
----
-
-# Project Vision
-
+## Project Vision
 The vision of VoteTrust is to build a secure, scalable, and maintainable backend platform that demonstrates how modern technologies can be combined to create a transparent and trustworthy digital voting system.
-
 The project emphasizes clean architecture, security-first development, and real-world engineering practices over simply implementing features.
 
----
-
-# Project Goals
-
+## Project Goals
 * Build a secure RESTful API using Spring Boot.
 * Implement robust authentication and authorization.
 * Ensure every eligible voter can cast only one vote.
@@ -87,262 +58,216 @@ The project emphasizes clean architecture, security-first development, and real-
 * Demonstrate scalable backend architecture suitable for enterprise applications.
 * Produce a professional portfolio project that reflects real-world engineering practices.
 
----
-
-# Core Principles
-
+## Core Principles
 VoteTrust is built around five fundamental principles.
-
-## Security
-
-Protect voter identities, ballots, and election data against unauthorized access and tampering.
-
-## Privacy
-
-Ensure that individual votes remain confidential while maintaining election integrity.
-
-## Integrity
-
-Guarantee that votes cannot be modified, duplicated, or removed once accepted by the system.
-
-## Transparency
-
-Provide verifiable audit logs that improve accountability without exposing sensitive information.
-
-## Accessibility
-
-Explore how digital platforms may reduce practical barriers that discourage participation.
+* **Security**: Protect voter identities, ballots, and election data against unauthorized access and tampering.
+* **Privacy**: Ensure that individual votes remain confidential while maintaining election integrity.
+* **Integrity**: Guarantee that votes cannot be modified, duplicated, or removed once accepted by the system.
+* **Transparency**: Provide verifiable audit logs that improve accountability without exposing sensitive information.
+* **Accessibility**: Explore how digital platforms may reduce practical barriers that discourage participation.
 
 ---
 
-# Key Features
+## Key Features
 
-The current implementation demonstrates:
+### Stateless Authentication and Authorization
 
-* Secure user registration and JWT authentication
-* Role-based account model
-* Disabled-by-default admin bootstrap flow for first-admin creation
-* Admin-only election, contest, option, and voting district management APIs
-* Election and voting district read APIs
-* Geographic ballot eligibility for national, provincial, municipal PR, and municipal ward contests
-* Voter registration with South African ID validation and registration-window enforcement
-* Anonymous one-time voting credentials
-* Digital ballot submission
-* One vote per voter per contest enforcement
-* Explicit blank and spoilt ballot option support
-* Ballot ledger entries that do not store voter identity
-* Receipt-resistant ballot responses that do not return ledger hashes, indexes, or ballot entry identifiers
-* Reduced timing-correlation metadata for credential and public ledger records
-* Tamper-evident SHA-256 hash chain for ballot ledger auditing
-* Final result tallying after voting closes
-* Public audit and ledger verification endpoints
-* Security audit events for authentication, admin bootstrap, and rate-limit blocks
-* Configurable rate limiting for sensitive write endpoints
-* OpenAPI / Swagger documentation
-* Docker Compose deployment with PostgreSQL
-* GitHub Actions CI workflow
-* Automated unit and integration tests
+* Spring Security operates without server-side HTTP sessions and authenticates requests with short-lived JWT access tokens.
+* Passwords are hashed with BCrypt using a cost factor of 12.
+* Role-based authorization separates voter operations from election administration.
+* The first-administrator bootstrap flow is disabled by default, token-protected, rate-limited, and permanently closes after an administrator exists.
 
----
+### Controlled Voter Registration
 
-# Technology Stack
+* Voters create platform accounts before registering for an election.
+* Election registration is accepted only while the configured registration window is open and the election is in the correct lifecycle state.
+* South African ID numbers are validated and stored as peppered HMAC-SHA-256 hashes rather than plaintext identifiers.
+* Voting-district and contest-scope checks model national, provincial, municipal proportional-representation, and ward eligibility.
 
-## Backend
+### One Person, One Vote
 
-* Java 21
-* Spring Boot 3
-* Spring Security
-* Spring Data JPA
-* Maven
+* Database uniqueness constraints prevent duplicate election registrations, voting rights, anonymous credentials, and ballot positions.
+* Pessimistic database locks serialize voting-right, credential-consumption, and ledger-state updates under concurrent requests.
+* Each eligible voter receives a one-time anonymous credential for a contest. A successful ballot consumes that credential atomically, preventing replay or duplicate voting.
 
-## Database
+### Ballot Privacy
 
-* PostgreSQL
+* Ballot ledger records contain no account, voter-profile, election-registration, or voting-right foreign key.
+* Anonymous credential values are stored as peppered HMAC-SHA-256 hashes and are separated from ballot selections.
+* Ballot responses avoid returning ledger positions, hashes, or ballot identifiers that could act as voting receipts.
+* Public ledger metadata exposes a coarse recording date rather than an exact cast timestamp to reduce timing correlation.
 
-## Security
+### Tamper-Evident SHA-256 Ledger
 
-* JWT Authentication
-* Password Encryption
-* Role-Based Access Control
+* Every accepted ballot becomes a ledger entry whose SHA-256 hash includes the previous entry hash and canonical ballot data.
+* Per-contest ledger state is locked while appending entries, preserving a deterministic chain under concurrent voting.
+* Audit operations recompute the chain and compare it with stored ledger state to detect modified, reordered, inserted, or deleted entries.
+* The hash chain is tamper-evident, not a blockchain or independently immutable storage system. Stronger real-world assurance would require restricted database administration, external hash anchoring, signed exports, and independent operational oversight.
 
-## Runtime Configuration
+### Results, Auditing, and Operations
 
-Set these secrets through environment variables. Do not commit real values.
+* Results and public ledger views become available only after the election is completed, the contest is closed, and voting has ended.
+* Blank and spoilt ballots are represented explicitly and are excluded from valid-vote winner calculations.
+* Security audit events record authentication, bootstrap, and rate-limit outcomes without linking anonymous ballot submissions to voter identities.
+* OpenAPI documentation, health probes, Flyway migrations, Docker packaging, Postman artifacts, and CI checks support repeatable development and review.
 
-* `VOTETRUST_JWT_SECRET`: JWT signing secret with at least 32 characters.
-* `VOTETRUST_ID_HASH_PEPPER`: HMAC pepper for hashing South African ID numbers with at least 32 characters.
-* `VOTETRUST_VOTE_CREDENTIAL_PEPPER`: HMAC pepper for hashing anonymous voting credentials with at least 32 characters.
-* `VOTETRUST_CORS_ALLOWED_ORIGINS`: Comma-separated browser origins allowed to call the API.
-* `VOTETRUST_RATE_LIMIT_ENABLED`: Enables the application-level sensitive endpoint rate limiter.
-* `VOTETRUST_RATE_LIMIT_WINDOW_SECONDS`: Fixed rate-limit window length in seconds.
-* `VOTETRUST_RATE_LIMIT_AUTH_LIMIT`: Requests per window for login and platform-account registration.
-* `VOTETRUST_RATE_LIMIT_BOOTSTRAP_LIMIT`: Requests per window for first-admin bootstrap.
-* `VOTETRUST_RATE_LIMIT_CREDENTIAL_LIMIT`: Requests per window for anonymous credential issuance.
-* `VOTETRUST_RATE_LIMIT_BALLOT_LIMIT`: Requests per window for anonymous ballot submission.
-* `VOTETRUST_ADMIN_BOOTSTRAP_ENABLED`: Enables the first-admin bootstrap endpoint when set to `true`.
-* `VOTETRUST_ADMIN_BOOTSTRAP_TOKEN`: One-time bootstrap token with at least 32 characters.
-* `VOTETRUST_LIFECYCLE_SCHEDULING_ENABLED`: Enables automatic election lifecycle processing; defaults to `true`.
-* `VOTETRUST_LIFECYCLE_POLL_INTERVAL_MS`: Lifecycle reconciliation interval; defaults to 5000 milliseconds.
+## Technology Stack
 
-## API Surface
+| Area | Technology |
+| --- | --- |
+| Language | Java 21 |
+| Application framework | Spring Boot 3 |
+| Web API | Spring MVC and Jakarta Bean Validation |
+| Security | Spring Security, stateless JWT with JJWT, BCrypt |
+| Persistence | Spring Data JPA and Hibernate |
+| Database | PostgreSQL 16 |
+| Schema management | Flyway |
+| API documentation | Springdoc OpenAPI and Swagger UI |
+| Build | Maven Wrapper |
+| Testing | JUnit 5, Mockito, Spring Security Test, Testcontainers |
+| Operations | Spring Boot Actuator, Docker, Docker Compose |
+| CI | GitHub Actions |
 
-Current implemented endpoints include:
+Runtime secrets and database credentials are supplied through environment variables. They are not embedded in the application artifact.
 
-* `POST /api/v1/auth/register` and `POST /api/v1/auth/login`
-* `POST /api/v1/admin/bootstrap`
-* `POST /api/v1/admin/voting-districts`
-* `POST /api/v1/admin/elections`
-* `PATCH /api/v1/admin/elections/{electionId}/status` for emergency cancellation only
-* `POST /api/v1/admin/elections/{electionId}/contests`
-* `POST /api/v1/admin/elections/{electionId}/contests/{contestId}/options`
-* `PATCH /api/v1/admin/elections/{electionId}/contests/{contestId}/status`
-* `GET /api/v1/admin/elections/{electionId}/lifecycle-events`
-* `GET /api/v1/elections` and `GET /api/v1/elections/{electionId}`
-* `POST /api/v1/elections/{electionId}/registrations`
-* `GET /api/v1/elections/{electionId}/contests`
-* `POST /api/v1/elections/{electionId}/contests/{contestId}/credentials`
-* `POST /api/v1/ballots`
-* `GET /api/v1/elections/{electionId}/contests/{contestId}/results`
-* `GET /api/v1/elections/{electionId}/contests/{contestId}/audit`
-* `GET /api/v1/elections/{electionId}/contests/{contestId}/ledger`
-* `GET /api/v1/admin/security-audit-events`
+## System Architecture / Endpoints
 
-Results, audit summaries, and public ledger entries are exposed only after the election status is `COMPLETED`, the contest status is `CLOSED`, and the voting window has ended. Public ledger entries expose a coarse `recordedDate` instead of exact cast timestamps to reduce timing-correlation risk.
+VoteTrust follows a layered Spring architecture:
 
-Security audit events are admin-only and intentionally limited to account authentication, admin bootstrap, and rate-limit blocks. Anonymous voting credentials and ballot submissions are not linked to voter identity in the security audit log.
-
-Blank and spoilt ballots are represented as explicit contest options with `optionType` values of `BLANK_BALLOT` and `SPOILT_BALLOT`. Accepted blank/spoilt ballots consume a one-time credential and are included in the tamper-evident ledger and `ballotsCast`, but they are excluded from `validVotes`, per-option winner calculations, and valid option percentages. Malformed API requests are rejected instead of being counted as spoilt ballots.
-
-Admin-managed elections and contests are created in `DRAFT` status. A database-locked scheduler advances the lifecycle from the configured UTC timestamps:
-
-* Election: `DRAFT` -> `REGISTRATION_OPEN` -> `REGISTRATION_CLOSED` -> `VOTING_OPEN` -> `COMPLETED`
-* Contest: `DRAFT` -> `OPEN` -> `CLOSED`
-
-All contests and ballot options become immutable at `registrationStartAt`, even if a scheduler run is delayed. Before registration opens, every election must have at least one contest and every contest must have at least two valid vote options. Invalid elections fail closed and produce a lifecycle audit event. Administrators may cancel an active election, but cannot manually open registration, open contests, open voting, or complete an election.
-
-The bootstrap endpoint is intended only for first-admin creation. It requires `X-VoteTrust-Bootstrap-Token`, only works when bootstrap is enabled, and refuses to create another admin after an admin account already exists.
-
-Contests include geographic scope fields used for eligibility checks before voting credentials are issued:
-
-* `NATIONAL`: no scope fields.
-* `PROVINCIAL`: `scopeProvince`.
-* `MUNICIPAL_PR`: `scopeProvince` and `scopeMunicipality`.
-* `MUNICIPAL_WARD`: `scopeProvince`, `scopeMunicipality`, and `scopeWardNumber`.
-
-A voter receives a credential only when their registered voting district matches the contest scope.
-
-## Documentation
-
-* OpenAPI JSON: `GET /api-docs`
-* Swagger UI: `GET /swagger-ui.html`
-* Controller groups include tags, operation descriptions, bearer-token requirements, error responses, and request/response schema examples.
-* Postman collection and local environment: [`postman/`](postman/)
-
-## Testing
-
-* JUnit 5
-* Mockito
-* PostgreSQL Testcontainers for Spring integration tests
-
-## DevOps
-
-* Docker
-* GitHub Actions
-
----
-
-# Local Deployment
-
-## Prerequisites
-
-* Java 21
-* Docker Desktop or a compatible Docker engine
-* Maven wrapper included in this repository
-
-## Run Tests
-
-```powershell
-.\mvnw.cmd test
+```text
+HTTP client
+    -> Spring Security filters and rate limiting
+    -> REST controllers and validated DTOs
+    -> transactional domain services
+    -> Spring Data JPA repositories
+    -> PostgreSQL and Flyway-managed schema
 ```
 
-Spring integration tests run against PostgreSQL Testcontainers with Flyway enabled, so Docker Desktop or another Docker-compatible engine must be available for full local validation. When Docker is unavailable, container-backed integration tests are skipped by Testcontainers; CI runs them on a Docker-capable runner.
+The system uses a centralized PostgreSQL ledger. It applies cryptographic chaining for tamper evidence but does not claim to be a distributed ledger or blockchain.
 
-## Run With Docker Compose
+### Core REST API
 
-Create a local environment file from the committed template, then replace every `change-me-*` value before starting the stack.
+| Method | Endpoint | Access | Purpose |
+| --- | --- | --- | --- |
+| `POST` | `/api/v1/auth/register` | Public | Create a voter account and return a JWT. |
+| `POST` | `/api/v1/auth/login` | Public | Authenticate an account and return a JWT. |
+| `GET` | `/api/v1/auth/me` | Authenticated | Return the current account. |
+| `POST` | `/api/v1/admin/bootstrap` | Controlled bootstrap | Create the first administrator during a temporary bootstrap window. |
+| `POST` | `/api/v1/admin/voting-districts` | Administrator | Create a voting district. |
+| `POST` | `/api/v1/admin/elections` | Administrator | Create an election. |
+| `PATCH` | `/api/v1/admin/elections/{electionId}/status` | Administrator | Advance the election lifecycle. |
+| `POST` | `/api/v1/admin/elections/{electionId}/contests` | Administrator | Create a geographically scoped contest. |
+| `POST` | `/api/v1/admin/elections/{electionId}/contests/{contestId}/options` | Administrator | Add a candidate, party, blank, or spoilt option. |
+| `PATCH` | `/api/v1/admin/elections/{electionId}/contests/{contestId}/status` | Administrator | Advance the contest lifecycle. |
+| `GET` | `/api/v1/admin/security-audit-events` | Administrator | Review recent security audit events. |
+| `GET` | `/api/v1/voting-districts` | Public | List voting districts available during registration. |
+| `GET` | `/api/v1/elections` | Public | List elections. |
+| `GET` | `/api/v1/elections/{electionId}` | Public | Retrieve an election. |
+| `POST` | `/api/v1/elections/{electionId}/registrations` | Authenticated voter | Register during the election registration window. |
+| `GET` | `/api/v1/me/registrations` | Authenticated voter | List the current voter's registrations. |
+| `GET` | `/api/v1/elections/{electionId}/contests` | Public | List contests and options for an election. |
+| `POST` | `/api/v1/elections/{electionId}/contests/{contestId}/credentials` | Authenticated voter | Issue a one-time anonymous voting credential after eligibility checks. |
+| `POST` | `/api/v1/ballots` | Anonymous credential | Cast a ballot without attaching the voter's JWT identity. |
+| `GET` | `/api/v1/elections/{electionId}/contests/{contestId}/results` | Public after closure | Return final contest results. |
+| `GET` | `/api/v1/elections/{electionId}/contests/{contestId}/audit` | Public after closure | Recompute and verify the contest hash chain. |
+| `GET` | `/api/v1/elections/{electionId}/contests/{contestId}/ledger` | Public after closure | Return privacy-reduced ledger entries. |
+
+Interactive API documentation is available at `/swagger-ui.html`; the OpenAPI document is available at `/api-docs`.
+
+## Local Deployment
+
+### Prerequisites
+
+* Git
+* Java 21 or newer
+* PostgreSQL 16 or a compatible supported PostgreSQL installation
+* PowerShell on Windows, or a POSIX-compatible shell on Linux/macOS
+
+### 1. Clone the repository
 
 ```powershell
-Copy-Item .env.example .env
-docker compose up --build
+git clone https://github.com/HumphreyMahlangu/VoteTrust.git
+Set-Location VoteTrust
 ```
 
-The API will be available at:
+### 2. Create the local PostgreSQL database
 
-* `http://localhost:8080`
-* `http://localhost:8080/swagger-ui.html`
-* `http://localhost:8080/actuator/health`
-* `http://localhost:8080/actuator/health/readiness`
+Open `psql` as a PostgreSQL administrator and create a dedicated local role and database:
 
-## Build Container Image Only
+```sql
+CREATE USER votetrust WITH PASSWORD 'replace-with-a-local-password';
+CREATE DATABASE votetrust OWNER votetrust;
+```
+
+Do not reuse development credentials in any hosted environment.
+
+### 3. Configure the application
+
+Set the required values in the same PowerShell session that will start Spring Boot:
 
 ```powershell
-docker build -t votetrust-api:local .
+$env:SPRING_DATASOURCE_URL = "jdbc:postgresql://localhost:5432/votetrust"
+$env:SPRING_DATASOURCE_USERNAME = "votetrust"
+$env:SPRING_DATASOURCE_PASSWORD = "replace-with-the-local-database-password"
+$env:VOTETRUST_JWT_SECRET = "replace-with-a-random-secret-of-at-least-32-characters"
+$env:VOTETRUST_ID_HASH_PEPPER = "replace-with-an-independent-random-32-character-pepper"
+$env:VOTETRUST_VOTE_CREDENTIAL_PEPPER = "replace-with-another-independent-32-character-pepper"
 ```
 
-See [DEPLOYMENT.md](DEPLOYMENT.md) for the deployment checklist and CI deployment gates.
+Keep the JWT secret and two peppers independent. Never commit real values to `.env`, source code, Postman files, or GitHub.
 
-## Test With Postman
+### 4. Run tests
 
-Import [`postman/VoteTrust.postman_collection.json`](postman/VoteTrust.postman_collection.json) and [`postman/VoteTrust.local.postman_environment.json`](postman/VoteTrust.local.postman_environment.json), then follow the folder order in the collection. The Postman README explains the short registration/voting-window timing used for the local demo.
+```powershell
+.\mvnw.cmd clean verify
+```
 
-## Production Notes
+Integration tests use PostgreSQL Testcontainers when Docker is available. GitHub Actions runs the complete database-backed suite with PostgreSQL.
 
-* Do not reuse `.env.example` values outside local development.
-* Provide `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME`, and `SPRING_DATASOURCE_PASSWORD`; the application no longer ships with hardcoded database credential defaults.
-* Set `VOTETRUST_JWT_SECRET`, `VOTETRUST_ID_HASH_PEPPER`, and `VOTETRUST_VOTE_CREDENTIAL_PEPPER` from a secret manager.
-* Keep JWT access tokens short-lived. The current design does not issue refresh tokens, so token revocation is handled by short token lifetime rather than a revocation store.
-* The built-in rate limiter is suitable for a single API instance. For horizontally scaled production deployments, enforce distributed rate limiting at the API gateway or Redis-backed service layer.
-* Keep `VOTETRUST_ADMIN_BOOTSTRAP_ENABLED=false` except during a controlled first-admin bootstrap window.
-* Rotate and remove any exposed `VOTETRUST_ADMIN_BOOTSTRAP_TOKEN` value after first-admin creation.
-* Set `VOTETRUST_CORS_ALLOWED_ORIGINS` to the exact frontend domains that should call the API.
-* Keep PostgreSQL storage on a managed volume or managed database service.
-* Expose only `/actuator/health` publicly; other actuator endpoints require authentication.
-* Flyway migrations run automatically on startup, and Hibernate validates the schema instead of creating it.
+### 5. Start the API
 
----
+```powershell
+.\mvnw.cmd spring-boot:run
+```
 
-# Project Status
+On Linux or macOS, use `./mvnw` instead of `.\mvnw.cmd`.
 
-✅ **Portfolio MVP Deployment-Verified**
+### 6. Verify the service
 
-The core backend workflow is implemented and deployment-verified: authentication, voter registration, anonymous voting, hash-chain auditability, final tallying, OpenAPI documentation, automated tests, local container deployment support, and CI checks for packaging, Compose config validation, and container image build.
+* API base URL: `http://localhost:8080`
+* Readiness: `http://localhost:8080/actuator/health/readiness`
+* Liveness: `http://localhost:8080/actuator/health/liveness`
+* Swagger UI: `http://localhost:8080/swagger-ui.html`
+* OpenAPI JSON: `http://localhost:8080/api-docs`
 
-The project remains an educational portfolio simulation and should not be presented as a certified online election platform.
+The repository also includes Docker Compose and verified Postman artifacts for an end-to-end local demonstration. See [`postman/README.md`](postman/README.md) and [`DEPLOYMENT.md`](DEPLOYMENT.md).
 
----
+## Project Status
 
-# Roadmap
+VoteTrust is a functional portfolio MVP. The implemented backend covers account security, controlled election registration, geographic eligibility, anonymous one-time voting credentials, concurrent duplicate-vote prevention, ballot casting, final tallying, SHA-256 ledger verification, OpenAPI documentation, automated tests, and local container packaging.
 
-Potential next steps:
+The project compiles and passes its automated CI quality gates. Cloud deployment automation is present but deployment is currently paused because ACR Tasks are unavailable on the selected Azure free-credit subscription. The repository should not be presented as a certified or operational public-election platform.
 
-* Refresh-token flow and token revocation.
-* Expanded database-backed audit events for non-sensitive administrative actions.
-* API versioned seed data for demo elections.
-* Cloud deployment pipeline and production observability.
-* Independent cryptographic review of the anonymous credential and ledger design.
+## Roadmap
 
----
+* Select a cloud deployment pipeline compatible with the target Azure subscription and add an entitlement check before provisioning billable resources.
+* Add refresh-token rotation, explicit token revocation, and stronger account recovery controls.
+* Move rate limiting to a distributed gateway or Redis-backed implementation for horizontal scaling.
+* Separate application and migration database roles using least privilege.
+* Add centralized observability, alerting, backup restoration tests, and disaster-recovery exercises.
+* Anchor signed ledger checkpoints outside the primary database and commission independent cryptographic and penetration testing.
+* Expand simulation coverage only where rules can be traced to authoritative South African electoral requirements.
 
-# Disclaimer
+## About the Developer
 
-VoteTrust is an educational software engineering project created for learning, experimentation, and portfolio purposes.
+VoteTrust is developed by Humphrey Mahlangu while completing an Information Technology qualification at the Cape Peninsula University of Technology. The project demonstrates a focus on secure enterprise backend development, Java and Spring engineering, relational data modelling, API security, automated testing, and production-minded operational practices.
 
-The project explores secure digital voting concepts and demonstrates modern backend engineering techniques.
+## Disclaimer
 
-It is **not** intended to replace existing election infrastructure or represent a production-ready election system.
+VoteTrust is an educational portfolio project and technical simulation. It is not endorsed or certified by the Electoral Commission of South Africa, does not replace statutory election processes, and must not be used to conduct a binding public election.
 
----
+Online voting requires legal authorization, independent security assessment, operational controls, accessibility review, incident response, physical and procedural safeguards, and public oversight beyond application code alone.
 
-# License
+## License
 
-This project is licensed under the MIT License.
+This project is licensed under the MIT License. See [`LICENSE`](LICENSE) for the full license text.
