@@ -28,6 +28,7 @@ import io.github.humphreymahlangu.votetrust.repository.AnonymousVotingCredential
 import io.github.humphreymahlangu.votetrust.repository.BallotLedgerEntryRepository;
 import io.github.humphreymahlangu.votetrust.repository.ContestOptionRepository;
 import io.github.humphreymahlangu.votetrust.repository.ContestRepository;
+import io.github.humphreymahlangu.votetrust.repository.ElectionLifecycleEventRepository;
 import io.github.humphreymahlangu.votetrust.repository.ElectionRegistrationRepository;
 import io.github.humphreymahlangu.votetrust.repository.ElectionRepository;
 import io.github.humphreymahlangu.votetrust.repository.LedgerStateRepository;
@@ -95,6 +96,9 @@ class VotingIntegrationTest extends PostgreSqlTestContainerSupport {
     private ElectionRepository electionRepository;
 
     @Autowired
+    private ElectionLifecycleEventRepository electionLifecycleEventRepository;
+
+    @Autowired
     private VotingDistrictRepository votingDistrictRepository;
 
     @Autowired
@@ -109,6 +113,7 @@ class VotingIntegrationTest extends PostgreSqlTestContainerSupport {
         ledgerStateRepository.deleteAll();
         anonymousVotingCredentialRepository.deleteAll();
         votingRightRepository.deleteAll();
+        electionLifecycleEventRepository.deleteAll();
         contestOptionRepository.deleteAll();
         contestRepository.deleteAll();
         electionRegistrationRepository.deleteAll();
