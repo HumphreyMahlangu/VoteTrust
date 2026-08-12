@@ -37,7 +37,7 @@ class PostmanArtifactTest {
         assertThat(collectionJson).contains(
                 "BLANK_BALLOT",
                 "SPOILT_BALLOT",
-                IdDocumentType.SMART_ID_CARD.name(),
+                "{{idDocumentType}}",
                 "{{adminToken}}",
                 "{{voterToken}}",
                 "{{votingCredential}}"
@@ -102,7 +102,8 @@ class PostmanArtifactTest {
                 "/api/v1/elections/{{electionId}}/contests/{{contestId}}/results",
                 "/api/v1/elections/{{electionId}}/contests/{{contestId}}/audit",
                 "/api/v1/elections/{{electionId}}/contests/{{contestId}}/ledger",
-                "/api/v1/admin/security-audit-events?limit=25"
+                "/api/v1/admin/security-audit-events?limit=25",
+                "/api/v1/admin/elections/{{electionId}}/lifecycle-events"
         );
         assertThat(collectionJson).contains(
                 "MUNICIPAL",
@@ -111,10 +112,19 @@ class PostmanArtifactTest {
                 "BLANK_BALLOT",
                 "SPOILT_BALLOT",
                 "{{idDocumentType}}",
+                "Timing Check - Registration Window Open",
                 "Timing Check - Voting Window Open",
-                "Timing Check - Voting Window Closed"
+                "Timing Check - Voting Window Closed",
+                "Confirm Election Is REGISTRATION_OPEN",
+                "Confirm Election Is VOTING_OPEN",
+                "Confirm Election Is COMPLETED"
         );
-        assertThat(collectionJson).doesNotContain("SOUTH_AFRICAN_ID");
+        assertThat(collectionJson).doesNotContain(
+                "SOUTH_AFRICAN_ID",
+                "Transition Election to REGISTRATION_OPEN",
+                "Transition Election to VOTING_OPEN",
+                "Transition Election to COMPLETED"
+        );
     }
 
     @Test
@@ -130,6 +140,7 @@ class PostmanArtifactTest {
                 "voterEmail",
                 "voterPassword",
                 "voterSouthAfricanIdNumber",
+                "configurationGraceSeconds",
                 "registrationGraceSeconds",
                 "votingDurationSeconds",
                 "idDocumentType",

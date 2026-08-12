@@ -181,6 +181,8 @@ Set these secrets through environment variables. Do not commit real values.
 * `VOTETRUST_RATE_LIMIT_BALLOT_LIMIT`: Requests per window for anonymous ballot submission.
 * `VOTETRUST_ADMIN_BOOTSTRAP_ENABLED`: Enables the first-admin bootstrap endpoint when set to `true`.
 * `VOTETRUST_ADMIN_BOOTSTRAP_TOKEN`: One-time bootstrap token with at least 32 characters.
+* `VOTETRUST_LIFECYCLE_SCHEDULING_ENABLED`: Enables automatic election lifecycle processing; defaults to `true`.
+* `VOTETRUST_LIFECYCLE_POLL_INTERVAL_MS`: Lifecycle reconciliation interval; defaults to 5000 milliseconds.
 
 ## API Surface
 
@@ -190,10 +192,11 @@ Current implemented endpoints include:
 * `POST /api/v1/admin/bootstrap`
 * `POST /api/v1/admin/voting-districts`
 * `POST /api/v1/admin/elections`
-* `PATCH /api/v1/admin/elections/{electionId}/status`
+* `PATCH /api/v1/admin/elections/{electionId}/status` for emergency cancellation only
 * `POST /api/v1/admin/elections/{electionId}/contests`
 * `POST /api/v1/admin/elections/{electionId}/contests/{contestId}/options`
 * `PATCH /api/v1/admin/elections/{electionId}/contests/{contestId}/status`
+* `GET /api/v1/admin/elections/{electionId}/lifecycle-events`
 * `GET /api/v1/elections` and `GET /api/v1/elections/{electionId}`
 * `POST /api/v1/elections/{electionId}/registrations`
 * `GET /api/v1/elections/{electionId}/contests`
@@ -210,10 +213,12 @@ Security audit events are admin-only and intentionally limited to account authen
 
 Blank and spoilt ballots are represented as explicit contest options with `optionType` values of `BLANK_BALLOT` and `SPOILT_BALLOT`. Accepted blank/spoilt ballots consume a one-time credential and are included in the tamper-evident ledger and `ballotsCast`, but they are excluded from `validVotes`, per-option winner calculations, and valid option percentages. Malformed API requests are rejected instead of being counted as spoilt ballots.
 
-Admin-managed elections and contests are created in `DRAFT` status. Status updates must follow the supported lifecycle:
+Admin-managed elections and contests are created in `DRAFT` status. A database-locked scheduler advances the lifecycle from the configured UTC timestamps:
 
 * Election: `DRAFT` -> `REGISTRATION_OPEN` -> `REGISTRATION_CLOSED` -> `VOTING_OPEN` -> `COMPLETED`
 * Contest: `DRAFT` -> `OPEN` -> `CLOSED`
+
+All contests and ballot options become immutable at `registrationStartAt`, even if a scheduler run is delayed. Before registration opens, every election must have at least one contest and every contest must have at least two valid vote options. Invalid elections fail closed and produce a lifecycle audit event. Administrators may cancel an active election, but cannot manually open registration, open contests, open voting, or complete an election.
 
 The bootstrap endpoint is intended only for first-admin creation. It requires `X-VoteTrust-Bootstrap-Token`, only works when bootstrap is enabled, and refuses to create another admin after an admin account already exists.
 

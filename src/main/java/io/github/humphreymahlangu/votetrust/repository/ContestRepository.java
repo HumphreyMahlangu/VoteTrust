@@ -13,6 +13,8 @@ public interface ContestRepository extends JpaRepository<Contest, UUID> {
     @EntityGraph(attributePaths = {"election"})
     List<Contest> findByElectionIdOrderByDisplayOrderAscNameAsc(UUID electionId);
 
+    List<Contest> findByElectionId(UUID electionId);
+
     @EntityGraph(attributePaths = {"election"})
     Optional<Contest> findByIdAndElectionId(UUID id, UUID electionId);
 

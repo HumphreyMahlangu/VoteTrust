@@ -13,6 +13,7 @@ import io.github.humphreymahlangu.votetrust.repository.BallotLedgerEntryReposito
 import io.github.humphreymahlangu.votetrust.repository.ContestOptionRepository;
 import io.github.humphreymahlangu.votetrust.repository.ContestRepository;
 import io.github.humphreymahlangu.votetrust.repository.ElectionRegistrationRepository;
+import io.github.humphreymahlangu.votetrust.repository.ElectionLifecycleEventRepository;
 import io.github.humphreymahlangu.votetrust.repository.ElectionRepository;
 import io.github.humphreymahlangu.votetrust.repository.LedgerStateRepository;
 import io.github.humphreymahlangu.votetrust.repository.UserAccountRepository;
@@ -67,6 +68,9 @@ class AdminLifecycleIntegrationTest extends PostgreSqlTestContainerSupport {
     private ElectionRepository electionRepository;
 
     @Autowired
+    private ElectionLifecycleEventRepository electionLifecycleEventRepository;
+
+    @Autowired
     private VotingDistrictRepository votingDistrictRepository;
 
     @Autowired
@@ -84,6 +88,7 @@ class AdminLifecycleIntegrationTest extends PostgreSqlTestContainerSupport {
         ledgerStateRepository.deleteAll();
         anonymousVotingCredentialRepository.deleteAll();
         votingRightRepository.deleteAll();
+        electionLifecycleEventRepository.deleteAll();
         contestOptionRepository.deleteAll();
         contestRepository.deleteAll();
         electionRegistrationRepository.deleteAll();
@@ -132,7 +137,7 @@ class AdminLifecycleIntegrationTest extends PostgreSqlTestContainerSupport {
     }
 
     @Test
-    void adminCanCreateAndTransitionElectionLifecycle() throws Exception {
+    void adminCanConfigureDraftElectionAndPerformAuditedEmergencyCancellation() throws Exception {
         String adminToken = bootstrapAdminAndReturnToken("admin.lifecycle@example.com");
 
         mockMvc.perform(post("/api/v1/admin/voting-districts")
@@ -170,23 +175,34 @@ class AdminLifecycleIntegrationTest extends PostgreSqlTestContainerSupport {
         createContestOption(adminToken, electionId, contestId, "Ubuntu Civic Movement", "PARTY", 1);
         createContestOption(adminToken, electionId, contestId, "Independent Candidate", "INDEPENDENT_CANDIDATE", 2);
 
-        transitionElection(adminToken, electionId, "REGISTRATION_OPEN", "REGISTRATION_OPEN");
-        transitionElection(adminToken, electionId, "REGISTRATION_CLOSED", "REGISTRATION_CLOSED");
+        mockMvc.perform(patch("/api/v1/admin/elections/{electionId}/status", electionId)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(statusBody("REGISTRATION_OPEN")))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value(
+                        "Election lifecycle transitions are automatic; administrators may only cancel an active election"
+                ));
 
-        transitionContest(adminToken, electionId, contestId, "OPEN", "OPEN");
-        transitionElection(adminToken, electionId, "VOTING_OPEN", "VOTING_OPEN");
-        transitionContest(adminToken, electionId, contestId, "CLOSED", "CLOSED");
-        transitionElection(adminToken, electionId, "COMPLETED", "COMPLETED");
-
-        mockMvc.perform(get("/api/v1/elections/{electionId}/contests/{contestId}/results", electionId, contestId))
+        mockMvc.perform(patch("/api/v1/admin/elections/{electionId}/status", electionId)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(statusBody("CANCELLED")))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.contestName").value("Ward 1 Councillor"))
-                .andExpect(jsonPath("$.ballotsCast").value(0))
-                .andExpect(jsonPath("$.validVotes").value(0));
+                .andExpect(jsonPath("$.status").value("CANCELLED"));
+
+        mockMvc.perform(get("/api/v1/admin/elections/{electionId}/lifecycle-events", electionId)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].previousStatus").value("DRAFT"))
+                .andExpect(jsonPath("$[0].newStatus").value("CANCELLED"))
+                .andExpect(jsonPath("$[0].trigger").value("ADMINISTRATOR"))
+                .andExpect(jsonPath("$[0].outcome").value("SUCCESS"))
+                .andExpect(jsonPath("$[0].actorEmail").value("admin.lifecycle@example.com"));
     }
 
     @Test
-    void adminCannotSkipElectionLifecycleOrOpenContestWithoutOptions() throws Exception {
+    void adminCannotAdvanceElectionOrContestLifecycleManually() throws Exception {
         String adminToken = bootstrapAdminAndReturnToken("admin.lifecycle.invalid@example.com");
         String electionId = createElectionAndReturnId(adminToken);
         String contestId = createContestAndReturnId(adminToken, electionId);
@@ -196,17 +212,18 @@ class AdminLifecycleIntegrationTest extends PostgreSqlTestContainerSupport {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(statusBody("VOTING_OPEN")))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.message").value("Cannot transition election from DRAFT to VOTING_OPEN"));
-
-        transitionElection(adminToken, electionId, "REGISTRATION_OPEN", "REGISTRATION_OPEN");
-        transitionElection(adminToken, electionId, "REGISTRATION_CLOSED", "REGISTRATION_CLOSED");
+                .andExpect(jsonPath("$.message").value(
+                        "Election lifecycle transitions are automatic; administrators may only cancel an active election"
+                ));
 
         mockMvc.perform(patch("/api/v1/admin/elections/{electionId}/contests/{contestId}/status", electionId, contestId)
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(statusBody("OPEN")))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.message").value("Contest must have at least two valid vote options before opening"));
+                .andExpect(jsonPath("$.message").value(
+                        "Contest lifecycle transitions are automatic and cannot be performed by an administrator"
+                ));
     }
 
     @Test
@@ -319,31 +336,6 @@ class AdminLifecycleIntegrationTest extends PostgreSqlTestContainerSupport {
                 .andExpect(jsonPath("$.displayOrder").value(displayOrder));
     }
 
-    private void transitionElection(String adminToken, String electionId, String status, String expectedStatus)
-            throws Exception {
-        mockMvc.perform(patch("/api/v1/admin/elections/{electionId}/status", electionId)
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(statusBody(status)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value(expectedStatus));
-    }
-
-    private void transitionContest(
-            String adminToken,
-            String electionId,
-            String contestId,
-            String status,
-            String expectedStatus
-    ) throws Exception {
-        mockMvc.perform(patch("/api/v1/admin/elections/{electionId}/contests/{contestId}/status", electionId, contestId)
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(statusBody(status)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value(expectedStatus));
-    }
-
     private String adminBootstrapBody(String email) {
         return """
                 {
@@ -370,10 +362,10 @@ class AdminLifecycleIntegrationTest extends PostgreSqlTestContainerSupport {
                 {
                   "name": "2024 Local Government Simulation",
                   "type": "MUNICIPAL",
-                  "registrationStartAt": "2024-01-01T00:00:00Z",
-                  "registrationEndAt": "2024-02-01T00:00:00Z",
-                  "votingStartAt": "2024-03-01T07:00:00Z",
-                  "votingEndAt": "2024-03-01T21:00:00Z"
+                  "registrationStartAt": "2099-01-01T00:00:00Z",
+                  "registrationEndAt": "2099-02-01T00:00:00Z",
+                  "votingStartAt": "2099-03-01T07:00:00Z",
+                  "votingEndAt": "2099-03-01T21:00:00Z"
                 }
                 """;
     }

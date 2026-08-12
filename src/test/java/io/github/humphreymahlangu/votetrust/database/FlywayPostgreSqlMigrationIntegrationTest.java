@@ -78,6 +78,30 @@ class FlywayPostgreSqlMigrationIntegrationTest extends PostgreSqlTestContainerSu
     }
 
     @Test
+    void flywayCreatesOrderedElectionLifecycleAuditTable() {
+        Integer appliedMigrationCount = jdbcTemplate.queryForObject(
+                "select count(*) from flyway_schema_history where version = '9' and success = true",
+                Integer.class
+        );
+        Integer lifecycleTableCount = jdbcTemplate.queryForObject("""
+                select count(*)
+                from information_schema.tables
+                where table_name = 'election_lifecycle_events'
+                """, Integer.class);
+        Integer eventSequenceColumnCount = jdbcTemplate.queryForObject("""
+                select count(*)
+                from information_schema.columns
+                where table_name = 'election_lifecycle_events'
+                  and column_name = 'event_sequence'
+                  and is_identity = 'YES'
+                """, Integer.class);
+
+        assertThat(appliedMigrationCount).isEqualTo(1);
+        assertThat(lifecycleTableCount).isEqualTo(1);
+        assertThat(eventSequenceColumnCount).isEqualTo(1);
+    }
+
+    @Test
     void postgresRejectsContestScopeThatViolatesMigrationConstraint() {
         UUID electionId = UUID.randomUUID();
         jdbcTemplate.update("""

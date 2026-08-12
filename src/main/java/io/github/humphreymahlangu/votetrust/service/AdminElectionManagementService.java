@@ -12,7 +12,6 @@ import io.github.humphreymahlangu.votetrust.dto.ElectionStatusUpdateRequest;
 import io.github.humphreymahlangu.votetrust.dto.VotingDistrictResponse;
 import io.github.humphreymahlangu.votetrust.entity.Contest;
 import io.github.humphreymahlangu.votetrust.entity.ContestOption;
-import io.github.humphreymahlangu.votetrust.entity.ContestOptionType;
 import io.github.humphreymahlangu.votetrust.entity.ContestStatus;
 import io.github.humphreymahlangu.votetrust.entity.ContestType;
 import io.github.humphreymahlangu.votetrust.entity.Election;
@@ -26,7 +25,8 @@ import io.github.humphreymahlangu.votetrust.repository.ContestOptionRepository;
 import io.github.humphreymahlangu.votetrust.repository.ContestRepository;
 import io.github.humphreymahlangu.votetrust.repository.ElectionRepository;
 import io.github.humphreymahlangu.votetrust.repository.VotingDistrictRepository;
-import java.util.List;
+import java.time.Clock;
+import java.time.Instant;
 import java.util.Locale;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
@@ -35,26 +35,27 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class AdminElectionManagementService {
 
-    private static final List<ContestOptionType> VALID_VOTE_OPTION_TYPES = List.of(
-            ContestOptionType.PARTY,
-            ContestOptionType.INDEPENDENT_CANDIDATE
-    );
-
     private final VotingDistrictRepository votingDistrictRepository;
     private final ElectionRepository electionRepository;
     private final ContestRepository contestRepository;
     private final ContestOptionRepository contestOptionRepository;
+    private final ElectionLifecycleService electionLifecycleService;
+    private final Clock clock;
 
     public AdminElectionManagementService(
             VotingDistrictRepository votingDistrictRepository,
             ElectionRepository electionRepository,
             ContestRepository contestRepository,
-            ContestOptionRepository contestOptionRepository
+            ContestOptionRepository contestOptionRepository,
+            ElectionLifecycleService electionLifecycleService,
+            Clock clock
     ) {
         this.votingDistrictRepository = votingDistrictRepository;
         this.electionRepository = electionRepository;
         this.contestRepository = contestRepository;
         this.contestOptionRepository = contestOptionRepository;
+        this.electionLifecycleService = electionLifecycleService;
+        this.clock = clock;
     }
 
     @Transactional
@@ -96,16 +97,24 @@ public class AdminElectionManagementService {
     }
 
     @Transactional
-    public ElectionResponse updateElectionStatus(UUID electionId, ElectionStatusUpdateRequest request) {
-        Election election = getElectionOrThrow(electionId);
-        validateElectionTransition(election, request.status());
-        election.transitionTo(request.status());
+    public ElectionResponse updateElectionStatus(
+            UUID electionId,
+            ElectionStatusUpdateRequest request,
+            UUID actorUserId,
+            String actorEmail
+    ) {
+        if (request.status() != ElectionStatus.CANCELLED) {
+            throw new ElectionLifecycleException(
+                    "Election lifecycle transitions are automatic; administrators may only cancel an active election"
+            );
+        }
+        Election election = electionLifecycleService.cancelElection(electionId, actorUserId, actorEmail);
         return toElectionResponse(election);
     }
 
     @Transactional
     public ContestResponse createContest(UUID electionId, CreateContestRequest request) {
-        Election election = getElectionOrThrow(electionId);
+        Election election = getElectionForUpdateOrThrow(electionId);
         ensureElectionAllowsBallotConfiguration(election);
         validateContestTypeForElection(election.getType(), request.type());
 
@@ -141,8 +150,9 @@ public class AdminElectionManagementService {
             UUID contestId,
             CreateContestOptionRequest request
     ) {
+        Election election = getElectionForUpdateOrThrow(electionId);
         Contest contest = getContestOrThrow(electionId, contestId);
-        ensureElectionAllowsBallotConfiguration(contest.getElection());
+        ensureElectionAllowsBallotConfiguration(election);
         if (contest.getStatus() != ContestStatus.DRAFT) {
             throw new ElectionLifecycleException("Contest ballot options can be changed only while the contest is DRAFT");
         }
@@ -176,10 +186,14 @@ public class AdminElectionManagementService {
             UUID contestId,
             ContestStatusUpdateRequest request
     ) {
+        getElectionForUpdateOrThrow(electionId);
         Contest contest = getContestOrThrow(electionId, contestId);
-        validateContestTransition(contest, request.status());
-        contest.transitionTo(request.status());
-        return toContestResponse(contest);
+        if (contest.getStatus() == request.status()) {
+            return toContestResponse(contest);
+        }
+        throw new ElectionLifecycleException(
+                "Contest lifecycle transitions are automatic and cannot be performed by an administrator"
+        );
     }
 
     private void validateElectionWindows(CreateElectionRequest request) {
@@ -191,45 +205,6 @@ public class AdminElectionManagementService {
         }
         if (request.registrationEndAt().isAfter(request.votingStartAt())) {
             throw new ElectionLifecycleException("Registration must end before voting starts");
-        }
-    }
-
-    private void validateElectionTransition(Election election, ElectionStatus targetStatus) {
-        ElectionStatus currentStatus = election.getStatus();
-        if (currentStatus == targetStatus) {
-            return;
-        }
-
-        boolean allowed = switch (currentStatus) {
-            case DRAFT -> targetStatus == ElectionStatus.REGISTRATION_OPEN
-                    || targetStatus == ElectionStatus.CANCELLED;
-            case REGISTRATION_OPEN -> targetStatus == ElectionStatus.REGISTRATION_CLOSED
-                    || targetStatus == ElectionStatus.CANCELLED;
-            case REGISTRATION_CLOSED -> targetStatus == ElectionStatus.VOTING_OPEN
-                    || targetStatus == ElectionStatus.CANCELLED;
-            case VOTING_OPEN -> targetStatus == ElectionStatus.COMPLETED
-                    || targetStatus == ElectionStatus.CANCELLED;
-            case COMPLETED, CANCELLED -> false;
-        };
-
-        if (!allowed) {
-            throw new ElectionLifecycleException(
-                    "Cannot transition election from " + currentStatus + " to " + targetStatus
-            );
-        }
-
-        if (targetStatus == ElectionStatus.VOTING_OPEN
-                && !contestRepository.existsByElectionIdAndStatus(election.getId(), ContestStatus.OPEN)) {
-            throw new ElectionLifecycleException("Election must have at least one open contest before voting opens");
-        }
-
-        if (targetStatus == ElectionStatus.COMPLETED) {
-            if (contestRepository.countByElectionId(election.getId()) == 0) {
-                throw new ElectionLifecycleException("Election must have contests before it can be completed");
-            }
-            if (contestRepository.existsByElectionIdAndStatusNot(election.getId(), ContestStatus.CLOSED)) {
-                throw new ElectionLifecycleException("All contests must be closed before the election is completed");
-            }
         }
     }
 
@@ -270,49 +245,15 @@ public class AdminElectionManagementService {
         }
     }
 
-    private void validateContestTransition(Contest contest, ContestStatus targetStatus) {
-        ContestStatus currentStatus = contest.getStatus();
-        if (currentStatus == targetStatus) {
-            return;
-        }
-
-        boolean allowed = switch (currentStatus) {
-            case DRAFT -> targetStatus == ContestStatus.OPEN;
-            case OPEN -> targetStatus == ContestStatus.CLOSED;
-            case CLOSED -> false;
-        };
-
-        if (!allowed) {
-            throw new ElectionLifecycleException(
-                    "Cannot transition contest from " + currentStatus + " to " + targetStatus
-            );
-        }
-
-        ElectionStatus electionStatus = contest.getElection().getStatus();
-        if (targetStatus == ContestStatus.OPEN) {
-            if (electionStatus != ElectionStatus.REGISTRATION_CLOSED && electionStatus != ElectionStatus.VOTING_OPEN) {
-                throw new ElectionLifecycleException("Contest can open only after election registration is closed");
-            }
-            if (contestOptionRepository.countByContestIdAndOptionTypeIn(contest.getId(), VALID_VOTE_OPTION_TYPES) < 2) {
-                throw new ElectionLifecycleException("Contest must have at least two valid vote options before opening");
-            }
-        }
-
-        if (electionStatus == ElectionStatus.CANCELLED || electionStatus == ElectionStatus.COMPLETED) {
-            throw new ElectionLifecycleException("Contest status cannot change after the election is terminal");
-        }
-    }
-
     private void ensureElectionAllowsBallotConfiguration(Election election) {
-        if (election.getStatus() == ElectionStatus.VOTING_OPEN
-                || election.getStatus() == ElectionStatus.COMPLETED
-                || election.getStatus() == ElectionStatus.CANCELLED) {
-            throw new ElectionLifecycleException("Ballot configuration is locked after voting opens");
+        if (election.getStatus() != ElectionStatus.DRAFT
+                || !Instant.now(clock).isBefore(election.getRegistrationStartAt())) {
+            throw new ElectionLifecycleException("Ballot configuration is locked once registration starts");
         }
     }
 
-    private Election getElectionOrThrow(UUID electionId) {
-        return electionRepository.findById(electionId)
+    private Election getElectionForUpdateOrThrow(UUID electionId) {
+        return electionRepository.findByIdForUpdate(electionId)
                 .orElseThrow(() -> new ResourceNotFoundException("Election not found"));
     }
 

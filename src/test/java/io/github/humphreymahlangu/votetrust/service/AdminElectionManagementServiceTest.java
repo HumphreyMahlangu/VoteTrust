@@ -1,14 +1,13 @@
 package io.github.humphreymahlangu.votetrust.service;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.anyCollection;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import io.github.humphreymahlangu.votetrust.dto.ContestStatusUpdateRequest;
 import io.github.humphreymahlangu.votetrust.dto.CreateContestOptionRequest;
+import io.github.humphreymahlangu.votetrust.dto.CreateContestRequest;
 import io.github.humphreymahlangu.votetrust.entity.Contest;
 import io.github.humphreymahlangu.votetrust.entity.ContestOption;
 import io.github.humphreymahlangu.votetrust.entity.ContestOptionType;
@@ -23,8 +22,10 @@ import io.github.humphreymahlangu.votetrust.repository.ContestOptionRepository;
 import io.github.humphreymahlangu.votetrust.repository.ContestRepository;
 import io.github.humphreymahlangu.votetrust.repository.ElectionRepository;
 import io.github.humphreymahlangu.votetrust.repository.VotingDistrictRepository;
+import java.time.Clock;
 import java.lang.reflect.Field;
 import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -35,6 +36,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 class AdminElectionManagementServiceTest {
+
+    private static final Instant FIXED_NOW = Instant.parse("2026-06-01T00:00:00Z");
 
     @Mock
     private VotingDistrictRepository votingDistrictRepository;
@@ -48,6 +51,9 @@ class AdminElectionManagementServiceTest {
     @Mock
     private ContestOptionRepository contestOptionRepository;
 
+    @Mock
+    private ElectionLifecycleService electionLifecycleService;
+
     private AdminElectionManagementService adminElectionManagementService;
 
     @BeforeEach
@@ -56,20 +62,21 @@ class AdminElectionManagementServiceTest {
                 votingDistrictRepository,
                 electionRepository,
                 contestRepository,
-                contestOptionRepository
+                contestOptionRepository,
+                electionLifecycleService,
+                Clock.fixed(FIXED_NOW, ZoneOffset.UTC)
         );
     }
 
     @Test
-    void openingContestRequiresAtLeastTwoValidVoteOptions() throws Exception {
+    void administratorCannotOpenContestManually() throws Exception {
         UUID electionId = UUID.randomUUID();
         UUID contestId = UUID.randomUUID();
         Contest contest = contest(ElectionStatus.REGISTRATION_CLOSED, ContestStatus.DRAFT);
         setId(contest, contestId);
 
+        when(electionRepository.findByIdForUpdate(electionId)).thenReturn(Optional.of(contest.getElection()));
         when(contestRepository.findByIdAndElectionId(contestId, electionId)).thenReturn(Optional.of(contest));
-        when(contestOptionRepository.countByContestIdAndOptionTypeIn(eq(contestId), anyCollection()))
-                .thenReturn(1L);
 
         assertThatThrownBy(() -> adminElectionManagementService.updateContestStatus(
                 electionId,
@@ -77,7 +84,36 @@ class AdminElectionManagementServiceTest {
                 new ContestStatusUpdateRequest(ContestStatus.OPEN)
         ))
                 .isInstanceOf(ElectionLifecycleException.class)
-                .hasMessage("Contest must have at least two valid vote options before opening");
+                .hasMessage("Contest lifecycle transitions are automatic and cannot be performed by an administrator");
+    }
+
+    @Test
+    void ballotConfigurationLocksAtRegistrationBoundaryBeforeSchedulerRuns() {
+        UUID electionId = UUID.randomUUID();
+        Election election = new Election(
+                "Boundary Election",
+                ElectionType.MUNICIPAL,
+                FIXED_NOW,
+                FIXED_NOW.plusSeconds(3600),
+                FIXED_NOW.plusSeconds(7200),
+                FIXED_NOW.plusSeconds(10800),
+                ElectionStatus.DRAFT
+        );
+        when(electionRepository.findByIdForUpdate(electionId)).thenReturn(Optional.of(election));
+
+        CreateContestRequest request = new CreateContestRequest(
+                "Ward 1 Councillor",
+                ContestType.MUNICIPAL_WARD,
+                1,
+                "Western Cape",
+                "City of Cape Town",
+                1
+        );
+
+        assertThatThrownBy(() -> adminElectionManagementService.createContest(electionId, request))
+                .isInstanceOf(ElectionLifecycleException.class)
+                .hasMessage("Ballot configuration is locked once registration starts");
+        verify(contestRepository, never()).save(org.mockito.ArgumentMatchers.any(Contest.class));
     }
 
     @Test
@@ -87,6 +123,7 @@ class AdminElectionManagementServiceTest {
         Contest contest = contest(ElectionStatus.DRAFT, ContestStatus.DRAFT);
         setId(contest, contestId);
 
+        when(electionRepository.findByIdForUpdate(electionId)).thenReturn(Optional.of(contest.getElection()));
         when(contestRepository.findByIdAndElectionId(contestId, electionId)).thenReturn(Optional.of(contest));
         when(contestOptionRepository.existsByContestIdAndNameIgnoreCase(contestId, "Blank ballot"))
                 .thenReturn(false);
