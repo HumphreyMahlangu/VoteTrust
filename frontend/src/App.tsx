@@ -1,9 +1,18 @@
+import { Link, Outlet } from 'react-router'
+
 function App() {
   return (
-    <main>
-      <h1>VoteTrust</h1>
-      <p>Frontend application is running.</p>
-    </main>
+    <>
+      <header>
+        <nav aria-label="Primary navigation">
+          <Link to="/">VoteTrust</Link>
+        </nav>
+      </header>
+
+      <main>
+        <Outlet />
+      </main>
+    </>
   )
 }
 
