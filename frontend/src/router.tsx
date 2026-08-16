@@ -5,6 +5,7 @@ import ContestAuditPage from './pages/ContestAuditPage'
 import ContestLedgerPage from './pages/ContestLedgerPage'
 import ContestResultsPage from './pages/ContestResultsPage'
 import ElectionDetailsPage from './pages/ElectionDetailsPage'
+import ElectionRegistrationPage from './pages/ElectionRegistrationPage'
 import ElectionsPage from './pages/ElectionsPage'
 import HomePage from './pages/HomePage'
 import LoginPage from './pages/LoginPage'
@@ -57,6 +58,10 @@ const router = createBrowserRouter([
           {
             path: 'dashboard',
             element: <VoterDashboardPage />,
+          },
+          {
+            path: 'elections/:electionId/register',
+            element: <ElectionRegistrationPage />,
           },
         ],
       },
