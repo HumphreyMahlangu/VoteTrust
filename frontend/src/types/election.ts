@@ -18,3 +18,12 @@ export interface Election {
   votingStartAt: string
   votingEndAt: string
 }
+
+export interface CreateElectionRequest {
+  name: string
+  type: ElectionType
+  registrationStartAt: string
+  registrationEndAt: string
+  votingStartAt: string
+  votingEndAt: string
+}

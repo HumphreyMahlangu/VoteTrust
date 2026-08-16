@@ -102,6 +102,14 @@ function AdminDashboardPage() {
             <h2 id="admin-tools-heading">Admin tools</h2>
             <ul>
               <li>
+                <Link to="/admin/elections/new">Create an election</Link>
+              </li>
+              <li>
+                <Link to="/admin/voting-districts/new">
+                  Create a voting district
+                </Link>
+              </li>
+              <li>
                 <Link to="/admin/security-events">
                   Review security audit events
                 </Link>
