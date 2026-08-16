@@ -98,9 +98,57 @@ function AdminDashboardPage() {
             <p>{formatNumber(dashboard.districts.length)} districts available.</p>
           </section>
 
+          <section aria-labelledby="draft-elections-heading">
+            <h2 id="draft-elections-heading">Draft election configuration</h2>
+            {dashboard.elections.filter(
+              (election) => election.status === 'DRAFT',
+            ).length === 0 ? (
+              <p>No draft elections are available to configure.</p>
+            ) : (
+              <ul>
+                {dashboard.elections
+                  .filter((election) => election.status === 'DRAFT')
+                  .map((election) => (
+                    <li key={election.id}>
+                      <Link
+                        to={`/admin/elections/${election.id}/configure`}
+                      >
+                        Configure {election.name}
+                      </Link>
+                    </li>
+                  ))}
+              </ul>
+            )}
+          </section>
+
+          <section aria-labelledby="election-operations-heading">
+            <h2 id="election-operations-heading">Election operations</h2>
+            {dashboard.elections.length === 0 ? (
+              <p>No elections are available.</p>
+            ) : (
+              <ul>
+                {dashboard.elections.map((election) => (
+                  <li key={election.id}>
+                    <Link to={`/admin/elections/${election.id}/operations`}>
+                      {election.name} — {formatEnumLabel(election.status)}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
           <section aria-labelledby="admin-tools-heading">
             <h2 id="admin-tools-heading">Admin tools</h2>
             <ul>
+              <li>
+                <Link to="/admin/elections/new">Create an election</Link>
+              </li>
+              <li>
+                <Link to="/admin/voting-districts/new">
+                  Create a voting district
+                </Link>
+              </li>
               <li>
                 <Link to="/admin/security-events">
                   Review security audit events
