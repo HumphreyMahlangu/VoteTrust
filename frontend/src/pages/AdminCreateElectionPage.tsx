@@ -126,7 +126,14 @@ function AdminCreateElectionPage() {
             <dt>Voting opens</dt>
             <dd>{formatDateTime(createdElection.votingStartAt)}</dd>
           </dl>
-          <Link to={`/elections/${createdElection.id}`}>View election</Link>
+          <p>
+            <Link to={`/admin/elections/${createdElection.id}/configure`}>
+              Configure contests and ballot options
+            </Link>
+          </p>
+          <p>
+            <Link to={`/elections/${createdElection.id}`}>View election</Link>
+          </p>
         </section>
       )}
 

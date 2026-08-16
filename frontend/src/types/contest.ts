@@ -31,3 +31,18 @@ export interface Contest {
   scopeWardNumber: number | null
   options: ContestOption[]
 }
+
+export interface CreateContestRequest {
+  name: string
+  type: ContestType
+  displayOrder: number
+  scopeProvince: string | null
+  scopeMunicipality: string | null
+  scopeWardNumber: number | null
+}
+
+export interface CreateContestOptionRequest {
+  name: string
+  optionType: ContestOptionType
+  displayOrder: number
+}

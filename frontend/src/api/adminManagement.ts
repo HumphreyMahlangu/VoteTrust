@@ -1,4 +1,10 @@
 import type {
+  Contest,
+  ContestOption,
+  CreateContestOptionRequest,
+  CreateContestRequest,
+} from '../types/contest'
+import type {
   CreateVotingDistrictRequest,
   VotingDistrict,
 } from '../types/district'
@@ -27,4 +33,40 @@ export function createElection(
     authToken,
     body: request,
   })
+}
+
+export function createContest(
+  electionId: string,
+  request: CreateContestRequest,
+  authToken: string,
+) {
+  const encodedElectionId = encodeURIComponent(electionId)
+
+  return apiRequest<Contest>(
+    `${ADMIN_PATH}/elections/${encodedElectionId}/contests`,
+    {
+      method: 'POST',
+      authToken,
+      body: request,
+    },
+  )
+}
+
+export function createContestOption(
+  electionId: string,
+  contestId: string,
+  request: CreateContestOptionRequest,
+  authToken: string,
+) {
+  const encodedElectionId = encodeURIComponent(electionId)
+  const encodedContestId = encodeURIComponent(contestId)
+
+  return apiRequest<ContestOption>(
+    `${ADMIN_PATH}/elections/${encodedElectionId}/contests/${encodedContestId}/options`,
+    {
+      method: 'POST',
+      authToken,
+      body: request,
+    },
+  )
 }

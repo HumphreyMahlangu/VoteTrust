@@ -98,6 +98,29 @@ function AdminDashboardPage() {
             <p>{formatNumber(dashboard.districts.length)} districts available.</p>
           </section>
 
+          <section aria-labelledby="draft-elections-heading">
+            <h2 id="draft-elections-heading">Draft election configuration</h2>
+            {dashboard.elections.filter(
+              (election) => election.status === 'DRAFT',
+            ).length === 0 ? (
+              <p>No draft elections are available to configure.</p>
+            ) : (
+              <ul>
+                {dashboard.elections
+                  .filter((election) => election.status === 'DRAFT')
+                  .map((election) => (
+                    <li key={election.id}>
+                      <Link
+                        to={`/admin/elections/${election.id}/configure`}
+                      >
+                        Configure {election.name}
+                      </Link>
+                    </li>
+                  ))}
+              </ul>
+            )}
+          </section>
+
           <section aria-labelledby="admin-tools-heading">
             <h2 id="admin-tools-heading">Admin tools</h2>
             <ul>
