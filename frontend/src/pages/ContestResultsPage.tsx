@@ -117,6 +117,25 @@ function ContestResultsPage() {
             </dd>
           </dl>
 
+          <nav aria-label="Result verification">
+            <ul>
+              <li>
+                <Link
+                  to={`/elections/${result.electionId}/contests/${result.contestId}/audit`}
+                >
+                  Verify ledger integrity
+                </Link>
+              </li>
+              <li>
+                <Link
+                  to={`/elections/${result.electionId}/contests/${result.contestId}/ledger`}
+                >
+                  View public ledger
+                </Link>
+              </li>
+            </ul>
+          </nav>
+
           <section aria-labelledby="option-results-heading">
             <h2 id="option-results-heading">Valid vote totals</h2>
 

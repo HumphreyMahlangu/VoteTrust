@@ -1,5 +1,7 @@
 import { createBrowserRouter } from 'react-router'
 import App from './App'
+import ContestAuditPage from './pages/ContestAuditPage'
+import ContestLedgerPage from './pages/ContestLedgerPage'
 import ContestResultsPage from './pages/ContestResultsPage'
 import ElectionDetailsPage from './pages/ElectionDetailsPage'
 import ElectionsPage from './pages/ElectionsPage'
@@ -28,6 +30,14 @@ const router = createBrowserRouter([
       {
         path: 'elections/:electionId/contests/:contestId/results',
         element: <ContestResultsPage />,
+      },
+      {
+        path: 'elections/:electionId/contests/:contestId/audit',
+        element: <ContestAuditPage />,
+      },
+      {
+        path: 'elections/:electionId/contests/:contestId/ledger',
+        element: <ContestLedgerPage />,
       },
       {
         path: '*',
