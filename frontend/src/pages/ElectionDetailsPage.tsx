@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { getElectionContests } from '../api/contests'
 import { getElection } from '../api/elections'
+import { useAuth } from '../auth/useAuth'
 import ElectionMetadata from '../components/ElectionMetadata'
 import type { Contest } from '../types/contest'
 import type { Election } from '../types/election'
@@ -15,6 +16,7 @@ interface ElectionDetails {
 
 function ElectionDetailsPage() {
   const { electionId } = useParams<{ electionId: string }>()
+  const { session } = useAuth()
   const [details, setDetails] = useState<ElectionDetails | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<unknown>(null)
@@ -80,6 +82,25 @@ function ElectionDetailsPage() {
             <h1 id="election-details-heading">{details.election.name}</h1>
             <ElectionMetadata election={details.election} />
           </article>
+
+          {details.election.status === 'REGISTRATION_OPEN' && (
+            <section aria-labelledby="voter-registration-heading">
+              <h2 id="voter-registration-heading">Voter registration</h2>
+              {!session ? (
+                <p>
+                  <Link to="/login">Sign in</Link> to register for this election.
+                </p>
+              ) : session.role === 'VOTER' ? (
+                <p>
+                  <Link to={`/elections/${details.election.id}/register`}>
+                    Register for this election
+                  </Link>
+                </p>
+              ) : (
+                <p>Administrator accounts cannot register as voters.</p>
+              )}
+            </section>
+          )}
 
           <section aria-labelledby="contests-heading">
             <h2 id="contests-heading">Contests</h2>
