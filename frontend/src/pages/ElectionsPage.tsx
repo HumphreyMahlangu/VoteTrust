@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router'
 import { getElections } from '../api/elections'
+import ElectionMetadata from '../components/ElectionMetadata'
 import type { Election } from '../types/election'
-import { formatDateTime, formatEnumLabel } from '../utils/formatters'
 import { getErrorMessage } from '../utils/getErrorMessage'
 
 function ElectionsPage() {
@@ -56,42 +57,10 @@ function ElectionsPage() {
           {elections.map((election) => (
             <li key={election.id}>
               <article aria-labelledby={`election-${election.id}`}>
-                <h2 id={`election-${election.id}`}>{election.name}</h2>
-                <dl>
-                  <dt>Type</dt>
-                  <dd>{formatEnumLabel(election.type)}</dd>
-
-                  <dt>Status</dt>
-                  <dd>{formatEnumLabel(election.status)}</dd>
-
-                  <dt>Registration opens</dt>
-                  <dd>
-                    <time dateTime={election.registrationStartAt}>
-                      {formatDateTime(election.registrationStartAt)}
-                    </time>
-                  </dd>
-
-                  <dt>Registration closes</dt>
-                  <dd>
-                    <time dateTime={election.registrationEndAt}>
-                      {formatDateTime(election.registrationEndAt)}
-                    </time>
-                  </dd>
-
-                  <dt>Voting opens</dt>
-                  <dd>
-                    <time dateTime={election.votingStartAt}>
-                      {formatDateTime(election.votingStartAt)}
-                    </time>
-                  </dd>
-
-                  <dt>Voting closes</dt>
-                  <dd>
-                    <time dateTime={election.votingEndAt}>
-                      {formatDateTime(election.votingEndAt)}
-                    </time>
-                  </dd>
-                </dl>
+                <h2 id={`election-${election.id}`}>
+                  <Link to={`/elections/${election.id}`}>{election.name}</Link>
+                </h2>
+                <ElectionMetadata election={election} />
               </article>
             </li>
           ))}
