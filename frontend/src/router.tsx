@@ -1,5 +1,6 @@
 import { createBrowserRouter } from 'react-router'
 import App from './App'
+import ElectionDetailsPage from './pages/ElectionDetailsPage'
 import ElectionsPage from './pages/ElectionsPage'
 import HomePage from './pages/HomePage'
 import NotFoundPage from './pages/NotFoundPage'
@@ -18,6 +19,10 @@ const router = createBrowserRouter([
       {
         path: 'elections',
         element: <ElectionsPage />,
+      },
+      {
+        path: 'elections/:electionId',
+        element: <ElectionDetailsPage />,
       },
       {
         path: '*',
