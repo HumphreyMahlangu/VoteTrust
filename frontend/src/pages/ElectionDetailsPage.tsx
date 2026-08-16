@@ -135,6 +135,17 @@ function ElectionDetailsPage() {
                           ))}
                         </ol>
                       )}
+
+                      {details.election.status === 'COMPLETED' &&
+                        contest.status === 'CLOSED' && (
+                          <p>
+                            <Link
+                              to={`/elections/${details.election.id}/contests/${contest.id}/results`}
+                            >
+                              View final results
+                            </Link>
+                          </p>
+                        )}
                     </article>
                   </li>
                 ))}
