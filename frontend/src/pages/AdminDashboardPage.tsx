@@ -121,6 +121,23 @@ function AdminDashboardPage() {
             )}
           </section>
 
+          <section aria-labelledby="election-operations-heading">
+            <h2 id="election-operations-heading">Election operations</h2>
+            {dashboard.elections.length === 0 ? (
+              <p>No elections are available.</p>
+            ) : (
+              <ul>
+                {dashboard.elections.map((election) => (
+                  <li key={election.id}>
+                    <Link to={`/admin/elections/${election.id}/operations`}>
+                      {election.name} — {formatEnumLabel(election.status)}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
           <section aria-labelledby="admin-tools-heading">
             <h2 id="admin-tools-heading">Admin tools</h2>
             <ul>

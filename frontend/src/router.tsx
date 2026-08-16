@@ -6,6 +6,7 @@ import AdminCreateElectionPage from './pages/AdminCreateElectionPage'
 import AdminCreateVotingDistrictPage from './pages/AdminCreateVotingDistrictPage'
 import AdminDashboardPage from './pages/AdminDashboardPage'
 import AdminElectionBuilderPage from './pages/AdminElectionBuilderPage'
+import AdminElectionOperationsPage from './pages/AdminElectionOperationsPage'
 import AdminSecurityEventsPage from './pages/AdminSecurityEventsPage'
 import ContestAuditPage from './pages/ContestAuditPage'
 import ContestLedgerPage from './pages/ContestLedgerPage'
@@ -94,6 +95,10 @@ const router = createBrowserRouter([
           {
             path: 'admin/elections/:electionId/configure',
             element: <AdminElectionBuilderPage />,
+          },
+          {
+            path: 'admin/elections/:electionId/operations',
+            element: <AdminElectionOperationsPage />,
           },
           {
             path: 'admin/voting-districts/new',

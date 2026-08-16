@@ -125,6 +125,13 @@ function AdminElectionBuilderPage() {
             </h1>
             <ElectionMetadata election={builderData.election} />
           </header>
+          <p>
+            <Link
+              to={`/admin/elections/${builderData.election.id}/operations`}
+            >
+              View lifecycle history and election operations
+            </Link>
+          </p>
 
           {!isConfigurationOpen ? (
             <p>

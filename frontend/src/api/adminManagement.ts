@@ -9,6 +9,7 @@ import type {
   VotingDistrict,
 } from '../types/district'
 import type { CreateElectionRequest, Election } from '../types/election'
+import type { ElectionLifecycleEvent } from '../types/electionLifecycle'
 import { apiRequest } from './client'
 
 const ADMIN_PATH = '/api/v1/admin'
@@ -67,6 +68,35 @@ export function createContestOption(
       method: 'POST',
       authToken,
       body: request,
+    },
+  )
+}
+
+export function getElectionLifecycleEvents(
+  electionId: string,
+  authToken: string,
+  signal?: AbortSignal,
+) {
+  const encodedElectionId = encodeURIComponent(electionId)
+
+  return apiRequest<ElectionLifecycleEvent[]>(
+    `${ADMIN_PATH}/elections/${encodedElectionId}/lifecycle-events`,
+    {
+      authToken,
+      signal,
+    },
+  )
+}
+
+export function cancelElection(electionId: string, authToken: string) {
+  const encodedElectionId = encodeURIComponent(electionId)
+
+  return apiRequest<Election>(
+    `${ADMIN_PATH}/elections/${encodedElectionId}/status`,
+    {
+      method: 'PATCH',
+      authToken,
+      body: { status: 'CANCELLED' },
     },
   )
 }
