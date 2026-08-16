@@ -16,7 +16,12 @@ function LoginPage() {
   >({})
 
   if (session) {
-    return <Navigate to={session.role === 'VOTER' ? '/dashboard' : '/'} replace />
+    return (
+      <Navigate
+        to={session.role === 'VOTER' ? '/dashboard' : '/admin'}
+        replace
+      />
+    )
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -27,9 +32,10 @@ function LoginPage() {
 
     try {
       const authenticatedSession = await login({ email, password })
-      navigate(authenticatedSession.role === 'VOTER' ? '/dashboard' : '/', {
-        replace: true,
-      })
+      navigate(
+        authenticatedSession.role === 'VOTER' ? '/dashboard' : '/admin',
+        { replace: true },
+      )
     } catch (requestError) {
       setError(requestError)
 

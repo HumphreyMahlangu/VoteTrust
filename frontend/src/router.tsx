@@ -1,6 +1,9 @@
 import { createBrowserRouter } from 'react-router'
 import App from './App'
+import RequireAdmin from './auth/RequireAdmin'
 import RequireVoter from './auth/RequireVoter'
+import AdminDashboardPage from './pages/AdminDashboardPage'
+import AdminSecurityEventsPage from './pages/AdminSecurityEventsPage'
 import ContestAuditPage from './pages/ContestAuditPage'
 import ContestLedgerPage from './pages/ContestLedgerPage'
 import ContestResultsPage from './pages/ContestResultsPage'
@@ -67,6 +70,19 @@ const router = createBrowserRouter([
           {
             path: 'elections/:electionId/contests/:contestId/vote',
             element: <VotePage />,
+          },
+        ],
+      },
+      {
+        element: <RequireAdmin />,
+        children: [
+          {
+            path: 'admin',
+            element: <AdminDashboardPage />,
+          },
+          {
+            path: 'admin/security-events',
+            element: <AdminSecurityEventsPage />,
           },
         ],
       },
