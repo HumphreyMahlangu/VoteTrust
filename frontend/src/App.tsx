@@ -22,6 +22,11 @@ function App() {
                     <Link to="/dashboard">Dashboard</Link>
                   </li>
                 )}
+                {session.role === 'ADMIN' && (
+                  <li>
+                    <Link to="/admin">Admin dashboard</Link>
+                  </li>
+                )}
                 <li>
                   <span>Signed in as {session.email}</span>{' '}
                   <button type="button" onClick={logout}>
