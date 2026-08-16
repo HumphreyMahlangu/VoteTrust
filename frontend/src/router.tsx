@@ -1,5 +1,6 @@
 import { createBrowserRouter } from 'react-router'
 import App from './App'
+import ElectionsPage from './pages/ElectionsPage'
 import HomePage from './pages/HomePage'
 import NotFoundPage from './pages/NotFoundPage'
 import RouteErrorPage from './pages/RouteErrorPage'
@@ -13,6 +14,10 @@ const router = createBrowserRouter([
       {
         index: true,
         element: <HomePage />,
+      },
+      {
+        path: 'elections',
+        element: <ElectionsPage />,
       },
       {
         path: '*',

@@ -5,7 +5,14 @@ function App() {
     <>
       <header>
         <nav aria-label="Primary navigation">
-          <Link to="/">VoteTrust</Link>
+          <ul>
+            <li>
+              <Link to="/">VoteTrust</Link>
+            </li>
+            <li>
+              <Link to="/elections">Elections</Link>
+            </li>
+          </ul>
         </nav>
       </header>
 
