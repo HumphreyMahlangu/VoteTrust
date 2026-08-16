@@ -12,6 +12,7 @@ import LoginPage from './pages/LoginPage'
 import NotFoundPage from './pages/NotFoundPage'
 import RegisterPage from './pages/RegisterPage'
 import RouteErrorPage from './pages/RouteErrorPage'
+import VotePage from './pages/VotePage'
 import VoterDashboardPage from './pages/VoterDashboardPage'
 
 const router = createBrowserRouter([
@@ -62,6 +63,10 @@ const router = createBrowserRouter([
           {
             path: 'elections/:electionId/register',
             element: <ElectionRegistrationPage />,
+          },
+          {
+            path: 'elections/:electionId/contests/:contestId/vote',
+            element: <VotePage />,
           },
         ],
       },

@@ -167,6 +167,25 @@ function ElectionDetailsPage() {
                             </Link>
                           </p>
                         )}
+
+                      {details.election.status === 'VOTING_OPEN' &&
+                        contest.status === 'OPEN' &&
+                        (!session ? (
+                          <p>
+                            <Link to="/login">Sign in</Link> to vote in this
+                            contest.
+                          </p>
+                        ) : session.role === 'VOTER' ? (
+                          <p>
+                            <Link
+                              to={`/elections/${details.election.id}/contests/${contest.id}/vote`}
+                            >
+                              Open ballot
+                            </Link>
+                          </p>
+                        ) : (
+                          <p>Administrator accounts cannot cast ballots.</p>
+                        ))}
                     </article>
                   </li>
                 ))}
