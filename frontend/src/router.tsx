@@ -6,7 +6,9 @@ import ContestResultsPage from './pages/ContestResultsPage'
 import ElectionDetailsPage from './pages/ElectionDetailsPage'
 import ElectionsPage from './pages/ElectionsPage'
 import HomePage from './pages/HomePage'
+import LoginPage from './pages/LoginPage'
 import NotFoundPage from './pages/NotFoundPage'
+import RegisterPage from './pages/RegisterPage'
 import RouteErrorPage from './pages/RouteErrorPage'
 
 const router = createBrowserRouter([
@@ -38,6 +40,14 @@ const router = createBrowserRouter([
       {
         path: 'elections/:electionId/contests/:contestId/ledger',
         element: <ContestLedgerPage />,
+      },
+      {
+        path: 'login',
+        element: <LoginPage />,
+      },
+      {
+        path: 'register',
+        element: <RegisterPage />,
       },
       {
         path: '*',

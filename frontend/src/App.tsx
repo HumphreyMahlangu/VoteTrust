@@ -1,6 +1,9 @@
 import { Link, Outlet } from 'react-router'
+import { useAuth } from './auth/useAuth'
 
 function App() {
+  const { session, logout } = useAuth()
+
   return (
     <>
       <header>
@@ -12,6 +15,23 @@ function App() {
             <li>
               <Link to="/elections">Elections</Link>
             </li>
+            {session ? (
+              <li>
+                <span>Signed in as {session.email}</span>{' '}
+                <button type="button" onClick={logout}>
+                  Sign out
+                </button>
+              </li>
+            ) : (
+              <>
+                <li>
+                  <Link to="/login">Sign in</Link>
+                </li>
+                <li>
+                  <Link to="/register">Register</Link>
+                </li>
+              </>
+            )}
           </ul>
         </nav>
       </header>
