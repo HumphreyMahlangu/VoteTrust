@@ -4,6 +4,7 @@ import type { ApiErrorResponse } from './ApiErrorResponse'
 
 interface ApiRequestOptions extends Omit<RequestInit, 'body'> {
   body?: unknown
+  authToken?: string
 }
 
 function buildApiUrl(path: string) {
@@ -43,7 +44,12 @@ export async function apiRequest<T>(
   path: string,
   options: ApiRequestOptions = {},
 ): Promise<T> {
-  const { body, headers: initialHeaders, ...requestOptions } = options
+  const {
+    authToken,
+    body,
+    headers: initialHeaders,
+    ...requestOptions
+  } = options
   const headers = new Headers(initialHeaders)
 
   if (!headers.has('Accept')) {
@@ -52,6 +58,10 @@ export async function apiRequest<T>(
 
   if (body !== undefined && !headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json')
+  }
+
+  if (authToken && !headers.has('Authorization')) {
+    headers.set('Authorization', `Bearer ${authToken}`)
   }
 
   const response = await fetch(buildApiUrl(path), {

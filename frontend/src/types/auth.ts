@@ -18,3 +18,10 @@ export interface RegistrationDetails {
   email: string
   password: string
 }
+
+export interface UserAccount {
+  id: string
+  email: string
+  role: AccountRole
+  enabled: boolean
+}

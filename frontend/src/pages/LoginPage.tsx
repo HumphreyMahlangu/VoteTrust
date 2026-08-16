@@ -16,7 +16,7 @@ function LoginPage() {
   >({})
 
   if (session) {
-    return <Navigate to="/elections" replace />
+    return <Navigate to={session.role === 'VOTER' ? '/dashboard' : '/'} replace />
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -26,8 +26,10 @@ function LoginPage() {
     setIsSubmitting(true)
 
     try {
-      await login({ email, password })
-      navigate('/elections', { replace: true })
+      const authenticatedSession = await login({ email, password })
+      navigate(authenticatedSession.role === 'VOTER' ? '/dashboard' : '/', {
+        replace: true,
+      })
     } catch (requestError) {
       setError(requestError)
 

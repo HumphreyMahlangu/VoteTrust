@@ -16,7 +16,7 @@ function RegisterPage() {
   >({})
 
   if (session) {
-    return <Navigate to="/elections" replace />
+    return <Navigate to={session.role === 'VOTER' ? '/dashboard' : '/'} replace />
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -26,8 +26,10 @@ function RegisterPage() {
     setIsSubmitting(true)
 
     try {
-      await register({ email, password })
-      navigate('/elections', { replace: true })
+      const authenticatedSession = await register({ email, password })
+      navigate(authenticatedSession.role === 'VOTER' ? '/dashboard' : '/', {
+        replace: true,
+      })
     } catch (requestError) {
       setError(requestError)
 

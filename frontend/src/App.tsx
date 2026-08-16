@@ -16,12 +16,19 @@ function App() {
               <Link to="/elections">Elections</Link>
             </li>
             {session ? (
-              <li>
-                <span>Signed in as {session.email}</span>{' '}
-                <button type="button" onClick={logout}>
-                  Sign out
-                </button>
-              </li>
+              <>
+                {session.role === 'VOTER' && (
+                  <li>
+                    <Link to="/dashboard">Dashboard</Link>
+                  </li>
+                )}
+                <li>
+                  <span>Signed in as {session.email}</span>{' '}
+                  <button type="button" onClick={logout}>
+                    Sign out
+                  </button>
+                </li>
+              </>
             ) : (
               <>
                 <li>
